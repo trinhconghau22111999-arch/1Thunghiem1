@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- THIẾT LẬP LẠI TỪ ĐẦU (reset) theo yêu cầu: bỏ hết các kích cỡ/khoảng cách/màu tint chắp vá
+     qua nhiều lần chỉnh sửa riêng lẻ trước đây. Quy tắc thống nhất áp dụng cho TOÀN BỘ file:
+       - Nút chính (Trả lời/Từ chối/Kết thúc): 72dp, dùng chung 1 background tương ứng.
+       - Nút phụ (Ghi âm/Im lặng/Giữ/Rõ ràng/Thêm cuộc/Thêm/Loa ngoài/Bàn phím): ĐỀU 40dp,
+         CÙNG 1 màu tint @color/text_on_dark (không còn phân biệt sáng/mờ giữa các nút).
+       - Nhãn chữ dưới mỗi icon: ĐỀU marginTop 8dp, textSize 12sp, màu #9AA0A6.
+       - Khoảng cách giữa các hàng: ĐỀU 24dp. -->
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_incall_screen">
+
+    <!-- Tên người gọi (hoặc số điện thoại nếu chưa lưu danh bạ) -->
+    <TextView android:id="@+id/tvCallerName"
+        android:layout_width="0dp" android:layout_height="wrap_content"
+        android:layout_marginTop="92dp"
+        android:layout_marginStart="24dp" android:layout_marginEnd="24dp"
+        android:gravity="center"
+        android:textColor="@color/text_on_dark" android:textSize="40sp"
+        android:textStyle="bold"
+        android:fontFamily="sans-serif" android:singleLine="true"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- Icon SIM + số điện thoại + nhà mạng: GỘP CHUNG 1 HÀNG NGANG đúng bố cục ảnh mẫu.
+         - Số CHƯA lưu danh bạ: icon SIM + "Việt Nam" (không lặp số vì số đã hiện to ở trên).
+         - Số ĐÃ lưu danh bạ (tên hiện ở tvCallerName rồi): hiện icon + "số | Việt Nam". -->
+    <LinearLayout android:id="@+id/llSimLine"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical"
+        android:layout_marginTop="8dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/tvCallerName"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <FrameLayout
+            android:layout_width="14dp" android:layout_height="18dp"
+            android:layout_marginEnd="5dp">
+            <TextView android:id="@+id/tvSimBadge"
+                android:layout_width="14dp" android:layout_height="16dp"
+                android:gravity="center"
+                android:background="@drawable/bg_sim_badge_light"
+                android:text="2"
+                android:textSize="7sp"
+                android:textColor="#FFFFFF" />
+        </FrameLayout>
+
+        <TextView android:id="@+id/tvCallerNumber"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textColor="#FFFFFF" android:textSize="15sp"
+            android:fontFamily="sans-serif"/>
+    </LinearLayout>
+
+    <!-- Badge HD + trạng thái/giờ gọi -->
+    <LinearLayout android:id="@+id/llStatusLine"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@id/llSimLine"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView android:id="@+id/tvHdBadge"
+            android:layout_width="wrap_content" android:layout_height="18dp"
+            android:paddingStart="4dp" android:paddingEnd="4dp"
+            android:gravity="center" android:text="HD"
+            android:textSize="10sp" android:textColor="#FFFFFF"
+            android:background="@drawable/bg_hd_badge"
+            android:layout_marginEnd="6dp"
+            android:visibility="gone" />
+
+        <TextView android:id="@+id/tvCallStatus"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textColor="#FFFFFF" android:textSize="19sp"
+            android:fontFamily="sans-serif" />
+    </LinearLayout>
+
+    <!-- INCOMING controls: Từ chối | Trả lời -->
+    <LinearLayout android:id="@+id/incomingControls"
+        android:layout_width="0dp" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center"
+        android:layout_marginStart="24dp" android:layout_marginEnd="24dp"
+        android:layout_marginBottom="64dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <ImageButton android:id="@+id/btnDecline"
+                android:layout_width="83dp" android:layout_height="72dp"
+                android:background="@drawable/bg_decline_circle"
+                android:src="@drawable/ic_call_end"
+                android:contentDescription="@string/decline"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Từ chối" android:textColor="#9AA0A6" android:textSize="14sp"
+                android:layout_marginTop="8dp" android:fontFamily="sans-serif" />
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <ImageButton android:id="@+id/btnAnswer"
+                android:layout_width="83dp" android:layout_height="72dp"
+                android:background="@drawable/bg_call_circle"
+                android:src="@drawable/ic_call"
+                android:contentDescription="@string/answer"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Trả lời" android:textColor="#9AA0A6" android:textSize="14sp"
+                android:layout_marginTop="8dp" android:fontFamily="sans-serif" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- ACTIVE controls -->
+    <LinearLayout android:id="@+id/activeControls"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:visibility="gone"
+        android:layout_marginStart="24dp" android:layout_marginEnd="24dp"
+        android:layout_marginBottom="70dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- Row 1: Ghi âm | Im lặng | Giữ -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center"
+            android:layout_marginBottom="28dp">
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                <ImageButton android:id="@+id/btnRecord"
+                    android:layout_width="33dp" android:layout_height="33dp"
+                    android:background="@android:color/transparent"
+                    android:scaleType="fitCenter"
+                    android:tint="@color/text_on_dark"
+                    android:src="@drawable/ic_record_dot"
+                    android:contentDescription="@string/start_recording"/>
+                <TextView android:id="@+id/tvRecordLabel"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="@string/start_recording" android:textColor="@color/text_on_dark" android:alpha="0.5" android:textSize="14sp"
+                    android:layout_marginTop="8dp" android:fontFamily="sans-serif" />
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                <ImageButton android:id="@+id/btnMute"
+                    android:layout_width="33dp" android:layout_height="33dp"
+                    android:background="@android:color/transparent"
+                    android:scaleType="fitCenter"
+                    android:tint="@color/text_on_dark"
+                    android:src="@drawable/ic_mic_off"
+                    android:contentDescription="Im lặng"/>
+                <TextView android:id="@+id/tvMuteLabel"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Im lặng" android:textColor="@color/text_on_dark" android:alpha="0.5" android:textSize="14sp"
+                    android:layout_marginTop="8dp" android:fontFamily="sans-serif" />
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                <ImageButton android:id="@+id/btnHold"
+                    android:layout_width="40dp" android:layout_height="40dp"
+                    android:background="@android:color/transparent"
+                    android:scaleType="fitCenter"
+                    android:tint="@color/text_on_dark"
+                    android:src="@drawable/ic_call_hold"
+                    android:contentDescription="@string/hold_call"/>
+                <TextView android:id="@+id/tvHoldLabel"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="@string/hold_call" android:textColor="@color/text_on_dark" android:alpha="0.5" android:textSize="14sp"
+                    android:layout_marginTop="8dp" android:fontFamily="sans-serif" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Row 2: Gọi rõ ràng | Thêm cuộc gọi | Thêm -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center"
+            android:layout_marginBottom="28dp">
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                <ImageButton android:id="@+id/btnClarity"
+                    android:layout_width="33dp" android:layout_height="33dp"
+                    android:background="@android:color/transparent"
+                    android:scaleType="fitCenter"
+                    android:tint="@color/text_on_dark"
+                    android:src="@drawable/ic_call_clarity"
+                    android:contentDescription="@string/call_clarity"/>
+                <TextView android:id="@+id/tvClarityLabel"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="@string/call_clarity" android:textColor="@color/text_on_dark" android:alpha="0.5" android:textSize="14sp"
+                    android:layout_marginTop="8dp" android:fontFamily="sans-serif" />
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                <ImageButton android:id="@+id/btnAddCall"
+                    android:layout_width="33dp" android:layout_height="33dp"
+                    android:background="@android:color/transparent"
+                    android:scaleType="fitCenter"
+                    android:tint="@color/text_on_dark"
+                    android:src="@drawable/ic_add"
+                    android:contentDescription="@string/add_call"/>
+                <TextView android:id="@+id/tvAddCallLabel"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="@string/add_call" android:textColor="@color/text_on_dark" android:alpha="0.5" android:textSize="14sp"
+                    android:layout_marginTop="8dp" android:fontFamily="sans-serif" />
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                <ImageButton android:id="@+id/btnMore"
+                    android:layout_width="40dp" android:layout_height="40dp"
+                    android:background="@android:color/transparent"
+                    android:scaleType="fitCenter"
+                    android:tint="@color/text_on_dark"
+                    android:src="@drawable/ic_expand_more"
+                    android:contentDescription="@string/more_options"/>
+                <TextView android:id="@+id/tvMoreLabel"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="@string/more_options" android:textColor="@color/text_on_dark" android:alpha="0.5" android:textSize="14sp"
+                    android:layout_marginTop="8dp" android:fontFamily="sans-serif" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- DTMF panel (ẩn mặc định) -->
+        <GridLayout android:id="@+id/dtmfPanel"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:columnCount="3" android:rowCount="4"
+            android:visibility="gone"
+            android:layout_marginBottom="24dp">
+
+            <androidx.appcompat.widget.AppCompatButton style="@style/KeyBtn" android:text="1" android:tag="1" android:textColor="@color/text_on_dark"/>
+            <androidx.appcompat.widget.AppCompatButton style="@style/KeyBtn" android:text="2" android:tag="2" android:textColor="@color/text_on_dark"/>
+            <androidx.appcompat.widget.AppCompatButton style="@style/KeyBtn" android:text="3" android:tag="3" android:textColor="@color/text_on_dark"/>
+            <androidx.appcompat.widget.AppCompatButton style="@style/KeyBtn" android:text="4" android:tag="4" android:textColor="@color/text_on_dark"/>
+            <androidx.appcompat.widget.AppCompatButton style="@style/KeyBtn" android:text="5" android:tag="5" android:textColor="@color/text_on_dark"/>
+            <androidx.appcompat.widget.AppCompatButton style="@style/KeyBtn" android:text="6" android:tag="6" android:textColor="@color/text_on_dark"/>
+            <androidx.appcompat.widget.AppCompatButton style="@style/KeyBtn" android:text="7" android:tag="7" android:textColor="@color/text_on_dark"/>
+            <androidx.appcompat.widget.AppCompatButton style="@style/KeyBtn" android:text="8" android:tag="8" android:textColor="@color/text_on_dark"/>
+            <androidx.appcompat.widget.AppCompatButton style="@style/KeyBtn" android:text="9" android:tag="9" android:textColor="@color/text_on_dark"/>
+            <androidx.appcompat.widget.AppCompatButton style="@style/KeyBtn" android:text="*" android:tag="*" android:textColor="@color/text_on_dark"/>
+            <androidx.appcompat.widget.AppCompatButton style="@style/KeyBtn" android:text="0" android:tag="0" android:textColor="@color/text_on_dark"/>
+            <androidx.appcompat.widget.AppCompatButton style="@style/KeyBtn" android:text="#" android:tag="#" android:textColor="@color/text_on_dark"/>
+        </GridLayout>
+
+        <!-- Row 3: Loa ngoài | Kết thúc | Bàn phím -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center"
+            android:layout_marginTop="0dp">
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                <ImageButton android:id="@+id/btnSpeaker"
+                    android:layout_width="40dp" android:layout_height="40dp"
+                    android:background="@android:color/transparent"
+                    android:scaleType="fitCenter"
+                    android:tint="@color/text_on_dark"
+                    android:src="@drawable/ic_volume_up"
+                    android:contentDescription="@string/speaker"/>
+                <TextView android:id="@+id/tvSpeakerLabel"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Loa ngoài" android:textColor="#9AA0A6" android:textSize="14sp"
+                    android:layout_marginTop="8dp" android:fontFamily="sans-serif"
+                    android:visibility="gone"/>
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                <FrameLayout android:id="@+id/btnEndCall"
+                    android:layout_width="68dp" android:layout_height="68dp"
+                    android:background="@drawable/bg_decline_circle"
+                    android:clickable="true" android:focusable="true">
+                    <ImageView
+                        android:layout_width="41dp" android:layout_height="41dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_call_end"
+                        android:contentDescription="@string/end_call"
+                        tools:ignore="MissingClass" />
+                </FrameLayout>
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Kết thúc" android:textColor="#9AA0A6" android:textSize="14sp"
+                    android:layout_marginTop="8dp" android:fontFamily="sans-serif"
+                    android:visibility="gone"/>
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                <ImageButton android:id="@+id/btnDtmf"
+                    android:layout_width="24dp" android:layout_height="24dp"
+                    android:background="@android:color/transparent"
+                    android:scaleType="fitCenter"
+                    android:tint="#FFFFFF"
+                    android:src="@drawable/ic_dialpad"
+                    android:contentDescription="Bàn phím"/>
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Bàn phím" android:textColor="#9AA0A6" android:textSize="14sp"
+                    android:layout_marginTop="8dp" android:fontFamily="sans-serif"
+                    android:visibility="gone"/>
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
