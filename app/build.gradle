@@ -1,7 +1,6 @@
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
-    id 'com.google.devtools.ksp'
 }
 
 android {
@@ -56,10 +55,5 @@ dependencies {
     // "tham chiếu chưa được giải quyết: lifecycleScope"
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.4'
 
-    // Room: lưu lịch sử cuộc gọi CỤC BỘ trong app (KHÔNG dùng CallLog provider của hệ thống nữa).
-    implementation 'androidx.room:room-runtime:2.6.1'
-    // room-ktx: BẮT BUỘC để dùng Flow<...> trong @Dao (vd CallHistoryDao.observeAll()) - thiếu
-    // dòng này KSP báo lỗi "To use Coroutine features, you must add ktx artifact from Room".
-    implementation 'androidx.room:room-ktx:2.6.1'
-    ksp 'androidx.room:room-compiler:2.6.1'
+    // Lịch sử cuộc gọi đọc thẳng từ CallLog hệ thống, không cần Room DB nữa.
 }

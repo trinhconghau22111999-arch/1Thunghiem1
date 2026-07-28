@@ -41,7 +41,7 @@ object ContactsRepository {
 
     /** Tra tên liên hệ theo số điện thoại, dùng thẳng ContactsContract.PhoneLookup của hệ thống
      *  (KHÔNG phụ thuộc cache ở trên - hoạt động cả khi người dùng chưa từng mở tab Danh bạ).
-     *  Cần cho CallHistoryManager: khi GỌI ĐI, Android Telecom KHÔNG tự điền callerDisplayName
+     *  Khi GỌI ĐI, Android Telecom KHÔNG tự điền callerDisplayName
      *  (trường đó chỉ có cho cuộc gọi ĐẾN, do hệ thống tự tra caller ID) - nên nếu không tự tra
      *  ở đây, lịch sử cuộc gọi đi tới 1 số đã lưu sẽ chỉ hiện số, không hiện tên. PhoneLookup tự
      *  xử lý việc chuẩn hoá số (khoảng trắng, +84 vs 0, dấu gạch...) nên đáng tin cậy hơn so với

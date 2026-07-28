@@ -58,7 +58,7 @@ class ContactsFragment : Fragment() {
         b.recyclerView.adapter = adapter
         b.recyclerView.itemAnimator = null  // không flash khi update
 
-        b.btnContactsSettings.setOnClickListener { (activity as? MainActivity)?.openSettings() }
+        b.btnContactsSettings.setOnClickListener { android.widget.Toast.makeText(requireContext(), "Không có cài đặt", android.widget.Toast.LENGTH_SHORT).show() }
 
         b.etSearch.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) { adapter.filter(s.toString()) }

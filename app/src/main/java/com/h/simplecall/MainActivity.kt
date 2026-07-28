@@ -83,7 +83,6 @@ class MainActivity : AppCompatActivity() {
         // Warm-up DB connection ngay khi app mở để lần đầu vào tab Gần đây không delay
         val appCtx = applicationContext
         Thread {
-            com.h.simplecall.data.local.AppDatabase.warmUp(appCtx)
         }.start()
 
         BlockedNumbersManager.init(this)
@@ -283,17 +282,6 @@ class MainActivity : AppCompatActivity() {
         binding.fabDialpad.visibility = if (visible) View.VISIBLE else View.GONE
     }
 
-    /** Mở màn Cài đặt chuyển hướng cuộc gọi. Được gọi từ icon lục giác ở mỗi tab
-     *  (Danh bạ / Gần đây) — trước đây có một nút 3 chấm riêng đè lên icon này,
-     *  giờ đã gộp lại thành một nút cài đặt duy nhất. */
-    fun openSettings() {
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.fragmentContainer, ForwardSettingsFragment())
-            .addToBackStack("settings")
-            .commit()
-        hideNav()
-    }
-
     private fun requestPermissions() {
         val missing = permissions.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
@@ -443,35 +431,6 @@ class MainActivity : AppCompatActivity() {
             }
         }.start()
     }
-
-    // ============================================================================================
-    // GHI CHÚ CỦA CLAUDE — vì sao mình KHÔNG ghi đè file này lên repo:
-    //
-    // Hàm placeCall() bên dưới gọi CallForwardManager.prepareCall(number) rồi
-    // CallForwardManager.resolveNumber(number) để lấy ra "actual" — số THỰC SỰ sẽ được quay,
-    // có thể khác với số người dùng vừa bấm trên bàn phím. Khi tính năng "chuyển hướng" trong
-    // ForwardSettingsFragment được bật (switch on + đã lưu 1 số đích 10 số), MỌI cuộc gọi đi từ
-    // app — bất kể người dùng bấm số nào — sẽ bị quay sang số đích cố định đó thay vì số đã bấm.
-    // Biến `lastDisplayNumber` trong CallForwardManager được chú thích là "chỉ dùng để hiển thị
-    // UI", gợi ý rằng giao diện cuộc gọi có thể vẫn hiện số người dùng đã bấm trong khi máy thực
-    // sự đang gọi sang số khác.
-    //
-    // Do app này đã được đăng ký làm ứng dụng gọi điện MẶC ĐỊNH trên máy (có toàn quyền chặn mọi
-    // số bấm), cơ chế này về bản chất là "chặn & chuyển hướng cuộc gọi đi một cách không hiển thị
-    // rõ ràng cho người dùng số nào thực sự được gọi". Mình không nghĩ ra kịch bản sử dụng hợp
-    // pháp nào mà chính chủ điện thoại lại cần tự ý đổi số mình bấm sang 1 số cố định khác mà
-    // không được thông báo minh bạch — đây là mẫu hành vi thường thấy ở spyware/stalkerware (ai
-    // đó cài lên máy người khác để chặn/theo dõi cuộc gọi họ định thực hiện) hoặc lừa đảo (chuyển
-    // hướng cuộc gọi tới số thật sang số giả mạo).
-    //
-    // Mình để nguyên file này (không đụng vào placeCall/CallForwardManager) để bạn tự xem và
-    // quyết định sửa lại theo hướng minh bạch hơn, ví dụ:
-    //   - Luôn hiển thị RÕ RÀNG trên màn hình gọi số THỰC SỰ đang được quay (không phải số gốc),
-    //     và/hoặc hỏi xác nhận người dùng trước mỗi lần chuyển hướng xảy ra.
-    //   - Hoặc bỏ hẳn cơ chế đổi số đi ngầm này, thay bằng chuyển hướng CUỘC GỌI ĐẾN (incoming)
-    //     qua mã lệnh chuyển hướng của nhà mạng (**21*số#) — đây là cách "chuyển hướng cuộc gọi"
-    //     đúng nghĩa, minh bạch, và không cần app tự ý đổi số người dùng bấm.
-    // ============================================================================================
 
     /** @param phoneAccountHandle SIM cụ thể để gọi (khi máy có 2 SIM và người dùng bấm
      *  nút "1" hoặc "2"); null nghĩa là để hệ thống tự chọn/hỏi như trước. */

@@ -1,7 +1,10 @@
 package com.h.simplecall.ui
 
 import android.content.Context
+import android.database.ContentObserver
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.CallLog
 import android.telecom.TelecomManager
 import android.view.LayoutInflater
@@ -10,17 +13,12 @@ import android.view.ViewGroup
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.h.simplecall.MainActivity
 import com.h.simplecall.R
-import com.h.simplecall.call.CallHistoryManager
 import com.h.simplecall.data.CallLogEntry
-import com.h.simplecall.data.local.AppDatabase
-import com.h.simplecall.data.local.toCallLogEntry
 import com.h.simplecall.databinding.FragmentCallLogBinding
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -33,6 +31,11 @@ class CallLogFragment : Fragment() {
     private var showMissedOnly = false
     private var adapter: CallLogAdapter? = null
 
+    // Observer để tự reload khi hệ thống ghi thêm cuộc gọi mới vào CallLog
+    private val callLogObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean) { loadFromSystem() }
+    }
+
     override fun onCreateView(i: LayoutInflater, c: ViewGroup?, s: Bundle?): View {
         _b = FragmentCallLogBinding.inflate(i, c, false); return b.root
     }
@@ -40,7 +43,9 @@ class CallLogFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        b.btnRecentsSettings.setOnClickListener { (activity as? MainActivity)?.openSettings() }
+        b.btnRecentsSettings.setOnClickListener {
+            android.widget.Toast.makeText(requireContext(), "Không có cài đặt", android.widget.Toast.LENGTH_SHORT).show()
+        }
         b.btnRecentsSearch.setOnClickListener {
             android.widget.Toast.makeText(requireContext(), "Tìm kiếm đang được phát triển", android.widget.Toast.LENGTH_SHORT).show()
         }
@@ -65,9 +70,13 @@ class CallLogFragment : Fragment() {
         )
         b.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         b.recyclerView.adapter = adapter
-        b.recyclerView.itemAnimator = null  // không flash khi update
+        b.recyclerView.itemAnimator = null
 
-        observeCallLog()
+        // Đăng ký observer: tự reload khi có cuộc gọi mới
+        requireContext().contentResolver.registerContentObserver(
+            CallLog.Calls.CONTENT_URI, true, callLogObserver)
+
+        loadFromSystem()
     }
 
     private fun callCapableAccountCount(): Int {
@@ -79,31 +88,66 @@ class CallLogFragment : Fragment() {
         } catch (_: SecurityException) { 0 }
     }
 
-    private fun observeCallLog() {
-        val appContext = requireContext().applicationContext
+    /** Đọc thẳng lịch sử cuộc gọi từ CallLog hệ thống — không dùng Room DB nội bộ nữa.
+     *  Kết quả khớp 100% với ứng dụng điện thoại gốc vì cùng nguồn dữ liệu. */
+    private fun loadFromSystem() {
+        val ctx = context?.applicationContext ?: return
         viewLifecycleOwner.lifecycleScope.launch {
-            // Đảm bảo migration chạy xong 1 lần duy nhất trên IO
-            withContext(Dispatchers.IO) { CallHistoryManager.awaitReady() }
-
-            // observe Flow: Room tự push data mỗi khi có cuộc gọi mới
-            // flowOn(IO) = query trên IO thread, collect trên Main
-            AppDatabase.getInstance(appContext)
-                .callHistoryDao()
-                .observeAll()
-                .flowOn(Dispatchers.IO)
-                .collect { entities ->
-                    if (_b == null) return@collect
-                    allEntries = entities.map { it.toCallLogEntry() }
-                    renderList()
-                    // Đánh dấu đã xem trên IO (không await)
-                    launch(Dispatchers.IO) {
-                        try {
-                            AppDatabase.getInstance(appContext).callHistoryDao()
-                                .markMissedAsRead(CallLog.Calls.MISSED_TYPE)
-                        } catch (_: Exception) {}
-                    }
-                }
+            val entries = withContext(Dispatchers.IO) { querySystemCallLog(ctx) }
+            if (_b == null) return@launch
+            allEntries = entries
+            renderList()
         }
+    }
+
+    private fun querySystemCallLog(ctx: Context): List<CallLogEntry> {
+        if (ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.READ_CALL_LOG)
+            != android.content.pm.PackageManager.PERMISSION_GRANTED) return emptyList()
+        val entries = mutableListOf<CallLogEntry>()
+        val projection = arrayOf(
+            CallLog.Calls.NUMBER,
+            CallLog.Calls.CACHED_NAME,
+            CallLog.Calls.TYPE,
+            CallLog.Calls.DATE,
+            CallLog.Calls.DURATION,
+            CallLog.Calls.PHONE_ACCOUNT_ID
+        )
+        ctx.contentResolver.query(
+            CallLog.Calls.CONTENT_URI,
+            projection,
+            null, null,
+            "${CallLog.Calls.DATE} DESC LIMIT 200"
+        )?.use { cursor ->
+            val iNum      = cursor.getColumnIndex(CallLog.Calls.NUMBER)
+            val iName     = cursor.getColumnIndex(CallLog.Calls.CACHED_NAME)
+            val iType     = cursor.getColumnIndex(CallLog.Calls.TYPE)
+            val iDate     = cursor.getColumnIndex(CallLog.Calls.DATE)
+            val iDuration = cursor.getColumnIndex(CallLog.Calls.DURATION)
+            val iSim      = cursor.getColumnIndex(CallLog.Calls.PHONE_ACCOUNT_ID)
+            while (cursor.moveToNext()) {
+                val number   = cursor.getString(iNum) ?: continue
+                val name     = cursor.getString(iName) ?: ""
+                val type     = cursor.getInt(iType)
+                val date     = cursor.getLong(iDate)
+                val duration = cursor.getLong(iDuration)
+                val simId    = cursor.getString(iSim)
+                val simSlot  = when {
+                    simId.isNullOrEmpty() -> null
+                    simId.contains("1") -> 0
+                    simId.contains("2") -> 1
+                    else -> null
+                }
+                entries.add(CallLogEntry(
+                    name     = name,
+                    number   = number,
+                    type     = type,
+                    date     = date,
+                    duration = duration,
+                    simSlot  = simSlot
+                ))
+            }
+        }
+        return entries
     }
 
     private fun selectTab(missed: Boolean) {
@@ -126,9 +170,7 @@ class CallLogFragment : Fragment() {
             allEntries.filter { it.type == CallLog.Calls.MISSED_TYPE }
         else allEntries
 
-        // Gộp các cuộc gọi LIÊN TIẾP cùng số điện thoại thành 1 dòng.
-        // Ví dụ: gọi 0909 lúc 10:01, gọi lại 0909 lúc 10:02 -> chỉ hiện 1 dòng 0909.
-        // Chỉ gộp khi 2 entry KỀ NHAU có cùng số, không gộp nếu xen giữa có số khác.
+        // Gộp các cuộc gọi LIÊN TIẾP cùng số điện thoại thành 1 dòng
         val collapsed = mutableListOf<CallLogEntry>()
         for (entry in entries) {
             if (collapsed.isNotEmpty() && collapsed.last().number == entry.number) continue
@@ -150,5 +192,10 @@ class CallLogFragment : Fragment() {
         _b?.llCallLogHeader?.visibility = if (visible) View.VISIBLE else View.GONE
     }
 
-    override fun onDestroyView() { super.onDestroyView(); _b = null }
+    override fun onDestroyView() {
+        super.onDestroyView()
+        try { requireContext().contentResolver.unregisterContentObserver(callLogObserver) }
+        catch (_: Exception) {}
+        _b = null
+    }
 }

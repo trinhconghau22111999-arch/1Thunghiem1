@@ -34,9 +34,6 @@ import com.h.simplecall.MainActivity
 import com.h.simplecall.R
 import com.h.simplecall.data.CallLogEntry
 import com.h.simplecall.data.Contact
-import com.h.simplecall.call.CallHistoryManager
-import com.h.simplecall.data.local.AppDatabase
-import com.h.simplecall.data.local.toCallLogEntry
 import com.h.simplecall.databinding.FragmentDialerBinding
 
 class DialerFragment : Fragment() {
@@ -121,7 +118,7 @@ class DialerFragment : Fragment() {
         b.rvRecents.itemAnimator = null // không nháy khi cache hiện trước rồi refresh nền đè lên
         loadRecents()
 
-        b.btnDialerSettings.setOnClickListener { (activity as? MainActivity)?.openSettings() }
+        b.btnDialerSettings.setOnClickListener { android.widget.Toast.makeText(requireContext(), "Không có cài đặt", android.widget.Toast.LENGTH_SHORT).show() }
         b.btnDialerSearch.setOnClickListener {
             android.widget.Toast.makeText(requireContext(), "Tìm kiếm đang được phát triển", android.widget.Toast.LENGTH_SHORT).show()
         }
@@ -553,14 +550,56 @@ class DialerFragment : Fragment() {
      *  (có máy hàng nghìn cuộc gọi) — giới hạn 50 dòng mới nhất là đủ và tránh lag khi mở màn.
      *  Đọc từ DB nội bộ của app (Room) - số của mỗi dòng LÀ số đã hiển thị trên màn hình gọi
      *  tại thời điểm gọi, không phải số CallLog hệ thống tự ghi. */
+    /** Đọc thẳng lịch sử cuộc gọi từ CallLog hệ thống — không dùng Room DB nội bộ nữa.
+     *  Kết quả khớp 100% với ứng dụng điện thoại gốc vì cùng nguồn dữ liệu. */
     private fun queryRecents(ctx: Context): List<CallLogEntry> {
-        CallHistoryManager.awaitReady() // đảm bảo di trú lịch sử cũ (nếu có) đã chạy xong
-        return try {
-            AppDatabase.getInstance(ctx).callHistoryDao().getRecent(50).map { it.toCallLogEntry() }
-        } catch (e: Exception) {
-            android.util.Log.e("DialerFragment", "Đọc lịch sử gần đây thất bại", e)
-            emptyList()
+        if (ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.READ_CALL_LOG)
+            != android.content.pm.PackageManager.PERMISSION_GRANTED) return emptyList()
+        val entries = mutableListOf<CallLogEntry>()
+        val projection = arrayOf(
+            CallLog.Calls.NUMBER,
+            CallLog.Calls.CACHED_NAME,
+            CallLog.Calls.TYPE,
+            CallLog.Calls.DATE,
+            CallLog.Calls.DURATION,
+            CallLog.Calls.PHONE_ACCOUNT_ID
+        )
+        ctx.contentResolver.query(
+            CallLog.Calls.CONTENT_URI,
+            projection,
+            null, null,
+            "${CallLog.Calls.DATE} DESC LIMIT 50"
+        )?.use { cursor ->
+            val iNum      = cursor.getColumnIndex(CallLog.Calls.NUMBER)
+            val iName     = cursor.getColumnIndex(CallLog.Calls.CACHED_NAME)
+            val iType     = cursor.getColumnIndex(CallLog.Calls.TYPE)
+            val iDate     = cursor.getColumnIndex(CallLog.Calls.DATE)
+            val iDuration = cursor.getColumnIndex(CallLog.Calls.DURATION)
+            val iSim      = cursor.getColumnIndex(CallLog.Calls.PHONE_ACCOUNT_ID)
+            while (cursor.moveToNext()) {
+                val number   = cursor.getString(iNum) ?: continue
+                val name     = cursor.getString(iName) ?: ""
+                val type     = cursor.getInt(iType)
+                val date     = cursor.getLong(iDate)
+                val duration = cursor.getLong(iDuration)
+                val simId    = cursor.getString(iSim)
+                val simSlot  = when {
+                    simId.isNullOrEmpty() -> null
+                    simId.contains("1") -> 0
+                    simId.contains("2") -> 1
+                    else -> null
+                }
+                entries.add(CallLogEntry(
+                    name     = name,
+                    number   = number,
+                    type     = type,
+                    date     = date,
+                    duration = duration,
+                    simSlot  = simSlot
+                ))
+            }
         }
+        return entries
     }
 
     private fun searchSuggestions(raw: String) {

@@ -9,10 +9,7 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import com.h.simplecall.MainActivity
 import com.h.simplecall.R
-import com.h.simplecall.call.CallHistoryManager
 import com.h.simplecall.data.CallLogEntry
-import com.h.simplecall.data.local.AppDatabase
-import com.h.simplecall.data.local.toCallLogEntry
 import com.h.simplecall.databinding.FragmentCallHistoryBinding
 import com.h.simplecall.databinding.ItemCallHistoryEntryBinding
 import java.text.SimpleDateFormat
@@ -292,15 +289,17 @@ class CallHistoryFragment : Fragment() {
         }
     }
 
-    /** Xoá nhật ký cuộc gọi của riêng số này khỏi DB nội bộ của app (không đụng CallLog hệ
-     *  thống nữa). So khớp theo phần số (bỏ ký tự không phải chữ số) để bắt cả các biến thể
-     *  định dạng khác nhau của cùng 1 số, giống hành vi cũ. */
+    /** Xoá nhật ký cuộc gọi của số này khỏi CallLog hệ thống. */
     private fun clearHistory(number: String) {
         val clean = number.filter { it.isDigit() }
         val appContext = requireContext().applicationContext
         bgExecutor.execute {
             try {
-                AppDatabase.getInstance(appContext).callHistoryDao().deleteByNumber("%$clean%")
+                appContext.contentResolver.delete(
+                    CallLog.Calls.CONTENT_URI,
+                    "REPLACE(REPLACE(${CallLog.Calls.NUMBER}, ' ', ''), '-', '') LIKE ?",
+                    arrayOf("%$clean%")
+                )
             } catch (e: Exception) {
                 android.util.Log.e("CallHistoryFragment", "Xoá lịch sử theo số thất bại", e)
             }
@@ -309,20 +308,46 @@ class CallHistoryFragment : Fragment() {
         b.llHistoryEntries.removeAllViews()
     }
 
-    /** Đọc lịch sử của riêng 1 số từ DB nội bộ - số đã lưu trong đó LUÔN LÀ số hiển thị trên
-     *  màn hình gọi tại thời điểm gọi (xem CallHistoryManager), không phải số CallLog hệ thống
-     *  tự ghi. PHẢI gọi ở nền (bgExecutor) vì Room chặn query trên main thread. */
+    /** Đọc lịch sử của riêng 1 số từ CallLog hệ thống. */
     private fun loadHistory(ctx: android.content.Context, number: String): List<CallLogEntry> {
-        CallHistoryManager.awaitReady() // đảm bảo di trú lịch sử cũ (nếu có) đã chạy xong
+        if (androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.READ_CALL_LOG)
+            != android.content.pm.PackageManager.PERMISSION_GRANTED) return emptyList()
         val clean = number.filter { it.isDigit() }
-        return try {
-            AppDatabase.getInstance(ctx).callHistoryDao()
-                .getByNumber("%$clean%")
-                .map { it.toCallLogEntry() }
-        } catch (e: Exception) {
-            android.util.Log.e("CallHistoryFragment", "Đọc lịch sử theo số thất bại", e)
-            emptyList()
+        val entries = mutableListOf<CallLogEntry>()
+        val projection = arrayOf(
+            CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME,
+            CallLog.Calls.TYPE, CallLog.Calls.DATE, CallLog.Calls.DURATION,
+            CallLog.Calls.PHONE_ACCOUNT_ID
+        )
+        ctx.contentResolver.query(
+            CallLog.Calls.CONTENT_URI, projection,
+            "${CallLog.Calls.NUMBER} LIKE ?", arrayOf("%$clean%"),
+            "${CallLog.Calls.DATE} DESC"
+        )?.use { cursor ->
+            val iNum = cursor.getColumnIndex(CallLog.Calls.NUMBER)
+            val iName = cursor.getColumnIndex(CallLog.Calls.CACHED_NAME)
+            val iType = cursor.getColumnIndex(CallLog.Calls.TYPE)
+            val iDate = cursor.getColumnIndex(CallLog.Calls.DATE)
+            val iDur  = cursor.getColumnIndex(CallLog.Calls.DURATION)
+            val iSim  = cursor.getColumnIndex(CallLog.Calls.PHONE_ACCOUNT_ID)
+            while (cursor.moveToNext()) {
+                val num   = cursor.getString(iNum) ?: continue
+                val simId = cursor.getString(iSim)
+                val slot  = when {
+                    simId.isNullOrEmpty() -> null
+                    simId.contains("1") -> 0
+                    simId.contains("2") -> 1
+                    else -> null
+                }
+                entries.add(CallLogEntry(
+                    name = cursor.getString(iName) ?: "",
+                    number = num, type = cursor.getInt(iType),
+                    date = cursor.getLong(iDate), duration = cursor.getLong(iDur),
+                    simSlot = slot
+                ))
+            }
         }
+        return entries
     }
 
     override fun onDestroyView() {

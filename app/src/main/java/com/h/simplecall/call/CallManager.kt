@@ -23,7 +23,6 @@ object CallManager {
     fun onCallRemoved(call: Call) {
         call.unregisterCallback(callback)
         if (currentCall == call) currentCall = null
-        CallForwardManager.lastDisplayNumber = "" // tránh số cũ "rò rỉ" sang cuộc gọi kế tiếp
         notifyListeners(Call.STATE_DISCONNECTED)
     }
 
@@ -59,16 +58,9 @@ object CallManager {
         else
             state != Call.STATE_RINGING
 
-    /**
-     * SỐ ĐƯỢC HIỂN THỊ TRÊN MÀN HÌNH GỌI tại thời điểm hiện tại. Đây là "nguồn sự thật" duy
-     * nhất cho số hiển thị — InCallActivity dùng để render UI, CallHistoryManager dùng để ghi
-     * lịch sử, đảm bảo 2 bên LUÔN khớp nhau kể cả khi có chuyển hướng cuộc gọi (số thật sự kết
-     * nối qua CallForwardManager có thể khác số người dùng thấy trên màn hình).
-     */
-    fun resolveDisplayNumber(call: Call, isOutgoing: Boolean): String =
-        if (isOutgoing && CallForwardManager.lastDisplayNumber.isNotEmpty())
-            CallForwardManager.lastDisplayNumber
-        else callerNumber(call)
+    /** Số điện thoại thực sự của cuộc gọi — đọc thẳng từ Telecom, không qua bất kỳ
+     *  cơ chế chuyển hướng nào. */
+    fun resolveDisplayNumber(call: Call, isOutgoing: Boolean): String = callerNumber(call)
 
     private val callback = object : Call.Callback() {
         override fun onStateChanged(call: Call, state: Int) = notifyListeners(state)
