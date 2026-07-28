@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Màn "chi tiết liên hệ" mở ra khi bấm icon info trên 1 dòng ở Lịch sử/Gần đây.
+     Dựng lại toàn bộ theo đúng ảnh mẫu người dùng gửi (Screenshot_20260724-155415):
+     thanh icon trên cùng cố định (back/edit/contact-card/more) + phần nội dung cuộn
+     (avatar tròn, tên, dòng SIM mặc định, thẻ số điện thoại + Zalo + Xem thêm, thẻ Meet,
+     thẻ Tóm tắt/Bản ghi âm cuộc gọi, và danh sách Nhật ký cuộc gọi). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/bg">
+
+    <!-- Thanh icon trên cùng: back (trái) - edit/contact-card/more (phải), CỐ ĐỊNH không cuộn -->
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="56dp"
+        android:orientation="horizontal" android:gravity="center_vertical"
+        android:paddingStart="4dp" android:paddingEnd="8dp">
+
+        <ImageButton android:id="@+id/btnBack"
+            android:layout_width="48dp" android:layout_height="48dp"
+            android:background="@android:color/transparent"
+            android:src="@drawable/ic_arrow_back"
+            android:contentDescription="Quay lại" />
+
+        <Space android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+
+        <ImageButton android:id="@+id/btnEdit"
+            android:layout_width="35dp" android:layout_height="35dp"
+            android:background="@android:color/transparent"
+            android:src="@drawable/ic_edit"
+            android:contentDescription="Sửa" />
+
+        <ImageButton android:id="@+id/btnContactCard"
+            android:layout_width="44dp" android:layout_height="44dp"
+            android:background="@android:color/transparent"
+            android:src="@drawable/ic_contact_card"
+            android:contentDescription="Thẻ liên hệ" />
+
+        <ImageButton android:id="@+id/btnMore"
+            android:layout_width="44dp" android:layout_height="44dp"
+            android:background="@android:color/transparent"
+            android:src="@drawable/ic_more_vert"
+            android:contentDescription="Thêm" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingBottom="24dp">
+
+        <LinearLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Avatar: tvAvatar (chữ cái đầu, liên hệ đã lưu) HOẶC ivDefaultAvatar (icon người
+                 mặc định, dùng khi số LẠ chưa lưu danh bạ) -->
+            <FrameLayout
+                android:layout_width="84dp" android:layout_height="84dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="29dp">
+
+                <TextView android:id="@+id/tvAvatar"
+                    android:layout_width="84dp" android:layout_height="84dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_avatar_circle"
+                    android:gravity="center"
+                    android:textSize="58sp" android:textColor="@color/white"
+                    android:fontFamily="sans-serif-medium" />
+
+                <ImageView android:id="@+id/ivDefaultAvatar"
+                    android:layout_width="84dp" android:layout_height="84dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_avatar_default"
+                    android:src="@drawable/ic_person"
+                    android:scaleType="fitCenter"
+                    android:padding="4dp"
+                    app:tint="@color/white"
+                    android:visibility="gone"
+                    android:contentDescription="@string/contact_photo" />
+            </FrameLayout>
+
+            <!-- Tên liên hệ, tối đa 2 dòng, canh giữa -->
+            <TextView android:id="@+id/tvTitle"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="8dp"
+                android:layout_marginStart="32dp" android:layout_marginEnd="32dp"
+                android:gravity="center"
+                android:textSize="39sp"
+                android:textColor="@color/text_primary"
+                android:fontFamily="sans-serif" />
+
+            <!-- Dòng "Gọi bằng SIMx (mặc định) >" -->
+            <LinearLayout android:id="@+id/rowSimDefault"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal" android:gravity="center_vertical"
+                android:clickable="true" android:focusable="true"
+                android:alpha="0.7">
+
+                <FrameLayout
+                    android:layout_width="15dp" android:layout_height="15dp">
+
+                    <TextView android:id="@+id/tvSimBadge"
+                        android:layout_width="15dp" android:layout_height="15dp"
+                        android:gravity="center"
+                        android:background="@drawable/bg_sim_badge"
+                        android:textSize="7sp" android:textColor="@color/text_secondary" />
+                </FrameLayout>
+
+                <TextView android:id="@+id/tvSubtitle"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginStart="1.5dp"
+                    android:textSize="14sp" android:textColor="@color/text_primary" />
+
+                <ImageView
+                    android:layout_width="16dp" android:layout_height="16dp"
+                    android:layout_marginStart="2dp"
+                    android:src="@drawable/ic_chevron_right" />
+            </LinearLayout>
+
+            <!-- Thẻ 1: số điện thoại + hành động gọi/nhắn/video + Zalo + Xem thêm -->
+            <LinearLayout
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_margin="16dp"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card_rounded"
+                android:padding="20dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:gravity="center_vertical">
+
+                    <LinearLayout
+                        android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:orientation="vertical">
+
+                        <TextView android:id="@+id/tvNumber"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:textSize="19sp" android:textColor="@color/text_primary" />
+
+                        <TextView android:id="@+id/tvNumberType"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="@string/number_type_mobile"
+                            android:textSize="13sp" android:textColor="@color/text_medium" />
+                    </LinearLayout>
+
+                    <!-- Icon gọi + số SIM ở góc trên -->
+                    <FrameLayout
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+                        <ImageButton android:id="@+id/btnCallRow"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:background="@android:color/transparent"
+                            android:src="@drawable/ic_call_outline"
+                            android:contentDescription="@string/call" />
+                        <!-- Số SIM hiện ở góc trên icon gọi -->
+                        <TextView
+                            android:id="@+id/tvCallSimNum"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="top|end"
+                            android:layout_marginTop="12dp"
+                            android:layout_marginEnd="10dp"
+                            android:text="1"
+                            android:textSize="10sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/text_medium"
+                            android:fontFamily="sans-serif-medium" />
+                    </FrameLayout>
+
+                    <ImageButton android:id="@+id/btnMessageRow"
+                        android:layout_width="40dp" android:layout_height="40dp"
+                        android:layout_marginStart="10dp"
+                        android:background="@android:color/transparent"
+                        android:src="@drawable/ic_message_outline"
+                        android:contentDescription="Nhắn tin" />
+
+                    <ImageButton android:id="@+id/btnVideoRow"
+                        android:layout_width="40dp" android:layout_height="40dp"
+                        android:layout_marginStart="10dp"
+                        android:background="@android:color/transparent"
+                        android:src="@drawable/ic_video_call_outline"
+                        android:contentDescription="Video call" />
+                </LinearLayout>
+
+                <View android:id="@+id/divBeforeZalo"
+                    android:layout_width="match_parent" android:layout_height="1dp"
+                    android:layout_marginTop="20dp" android:layout_marginBottom="16dp"
+                    android:background="@color/divider" />
+
+                <LinearLayout android:id="@+id/rowZalo"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:clickable="true" android:focusable="true">
+
+                    <TextView android:id="@+id/tvZalo"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:textSize="16sp" android:textColor="@color/text_primary" />
+
+                    <TextView
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Zalo"
+                        android:textSize="13sp" android:textColor="@color/text_secondary" />
+                </LinearLayout>
+
+                <LinearLayout android:id="@+id/rowSeeMore"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:orientation="horizontal" android:gravity="center"
+                    android:clickable="true" android:focusable="true">
+
+                    <TextView
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="Xem thêm"
+                        android:textSize="14sp" android:textColor="@color/text_primary" />
+
+                    <ImageView
+                        android:layout_width="18dp" android:layout_height="18dp"
+                        android:layout_marginStart="4dp"
+                        android:src="@drawable/ic_chevron_down" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Thẻ 2: Meet -->
+            <LinearLayout android:id="@+id/rowMeet"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginStart="16dp" android:layout_marginEnd="16dp"
+                android:orientation="horizontal" android:gravity="center_vertical"
+                android:background="@drawable/bg_card_rounded"
+                android:padding="20dp"
+                android:clickable="true" android:focusable="true">
+
+                <TextView
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Meet"
+                    android:textSize="16sp" android:textColor="@color/text_primary" />
+
+                <ImageView
+                    android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right" />
+            </LinearLayout>
+
+            <!-- Thẻ 3: Tóm tắt cuộc gọi / Bản ghi âm cuộc gọi -->
+            <LinearLayout
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_margin="16dp"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card_rounded">
+
+                <LinearLayout android:id="@+id/rowCallSummary"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:gravity="center_vertical"
+                    android:padding="20dp"
+                    android:clickable="true" android:focusable="true">
+
+                    <TextView
+                        android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Tóm tắt cuộc gọi"
+                        android:textSize="16sp" android:textColor="@color/text_primary" />
+
+                    <ImageView
+                        android:layout_width="20dp" android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent" android:layout_height="1dp"
+                    android:layout_marginStart="20dp" android:layout_marginEnd="20dp"
+                    android:background="@color/divider" />
+
+                <LinearLayout android:id="@+id/rowCallRecording"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:gravity="center_vertical"
+                    android:padding="20dp"
+                    android:clickable="true" android:focusable="true">
+
+                    <TextView
+                        android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Bản ghi âm cuộc gọi"
+                        android:textSize="16sp" android:textColor="@color/text_primary" />
+
+                    <ImageView
+                        android:layout_width="20dp" android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Thẻ MỚI: chỉ hiện khi số điện thoại NÀY chưa có trong danh bạ (số lạ) -->
+            <LinearLayout android:id="@+id/cardAddContact"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_margin="16dp"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card_rounded"
+                android:visibility="gone">
+
+                <LinearLayout android:id="@+id/rowCreateContact"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:gravity="center_vertical"
+                    android:padding="20dp"
+                    android:clickable="true" android:focusable="true">
+
+                    <TextView
+                        android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Tạo liên hệ mới"
+                        android:textSize="16sp" android:textColor="@color/text_primary" />
+
+                    <ImageView
+                        android:layout_width="20dp" android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent" android:layout_height="1dp"
+                    android:layout_marginStart="20dp" android:layout_marginEnd="20dp"
+                    android:background="@color/divider" />
+
+                <LinearLayout android:id="@+id/rowAddExisting"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:gravity="center_vertical"
+                    android:padding="20dp"
+                    android:clickable="true" android:focusable="true">
+
+                    <TextView
+                        android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Thêm vào liên lạc hiện có"
+                        android:textSize="16sp" android:textColor="@color/text_primary" />
+
+                    <ImageView
+                        android:layout_width="20dp" android:layout_height="20dp"
+                        android:src="@drawable/ic_chevron_right" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Tiêu đề "Nhật ký cuộc gọi" + nút "Xóa" -->
+            <LinearLayout
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginStart="20dp" android:layout_marginEnd="12dp"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal" android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Nhật ký cuộc gọi"
+                    android:textSize="15sp" android:textColor="@color/text_secondary" />
+
+                <TextView android:id="@+id/btnClearLog"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Xóa"
+                    android:textSize="15sp" android:textColor="@color/accent_blue"
+                    android:padding="8dp"
+                    android:clickable="true" android:focusable="true" />
+            </LinearLayout>
+
+            <!-- Danh sách nhật ký cuộc gọi của SỐ NÀY: thêm động bằng code (llHistoryEntries),
+                 KHÔNG dùng RecyclerView lồng trong ScrollView để tránh xung đột cuộn -->
+            <LinearLayout android:id="@+id/llHistoryEntries"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_margin="16dp"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card_rounded" />
+
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>
