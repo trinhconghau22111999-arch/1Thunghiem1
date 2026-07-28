@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Khung chữ nhật thường (bo góc nhẹ), dùng cho nhãn "HD" - KHÔNG có góc cắt vát như
+     bg_sim_badge (hình thẻ SIM). Hai khung khác nhau để phân biệt rõ 2 loại nhãn. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="2dp" />
+    <stroke android:width="1.2dp" android:color="@color/call_log_muted" />
+    <solid android:color="@android:color/transparent" />
+</shape>
