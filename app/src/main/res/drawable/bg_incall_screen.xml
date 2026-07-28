@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Nền màn hình gọi: màu xám lấy mẫu CHÍNH XÁC từ ảnh thực tế người dùng cung cấp
+     (trung bình pixel toàn ảnh = #94989B). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#94989B" />
+</shape>
