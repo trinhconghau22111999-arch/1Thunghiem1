@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icon loa ngoài: thân loa hình thang + 1 cung sóng âm, giống hệt ảnh mẫu người dùng gửi -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+
+    <!-- Thân loa: hình tam giác cụt bên phải, đặt giữa màn -->
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M3,9.5 L7,9.5 L13,5 L13,19 L7,14.5 L3,14.5 Z"/>
+
+    <!-- Sóng âm nhỏ gần -->
+    <path android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M15.5,10 Q17.5,12 15.5,14"/>
+
+    <!-- Sóng âm lớn xa -->
+    <path android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M18,8 Q21.5,12 18,16"/>
+</vector>
