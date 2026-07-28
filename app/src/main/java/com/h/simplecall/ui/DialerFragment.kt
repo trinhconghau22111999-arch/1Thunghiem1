@@ -118,10 +118,59 @@ class DialerFragment : Fragment() {
         b.rvRecents.itemAnimator = null // không nháy khi cache hiện trước rồi refresh nền đè lên
         loadRecents()
 
-        b.btnDialerSettings.setOnClickListener { android.widget.Toast.makeText(requireContext(), "Không có cài đặt", android.widget.Toast.LENGTH_SHORT).show() }
-        b.btnDialerSearch.setOnClickListener {
-            android.widget.Toast.makeText(requireContext(), "Tìm kiếm đang được phát triển", android.widget.Toast.LENGTH_SHORT).show()
+        // Đồng bộ với tab Gần đây/Danh bạ: mở đúng màn Cài đặt thay vì chỉ hiện toast báo
+        // "Không có cài đặt" — app đã có SettingsFragment thật (tuỳ chỉnh giao diện Sáng/Tối).
+        b.btnDialerSettings.setOnClickListener {
+            requireActivity().supportFragmentManager.beginTransaction()
+                .replace(R.id.fragmentContainer, SettingsFragment.newInstance())
+                .addToBackStack("settings")
+                .commit()
+            (activity as? MainActivity)?.hideNav()
         }
+        // Tìm kiếm inline giống hệt tab Gần đây: lọc trực tiếp trên danh sách allRecentEntries
+        // đã tải sẵn ở nền, không cần toast placeholder nữa.
+        b.btnDialerSearch.setOnClickListener {
+            b.searchBarDialer.visibility = View.VISIBLE
+            b.llDialerTitleTabs.visibility = View.GONE
+            b.etSearchDialer.requestFocus()
+            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.showSoftInput(b.etSearchDialer, InputMethodManager.SHOW_IMPLICIT)
+        }
+        b.btnSearchCloseDialer.setOnClickListener {
+            b.searchBarDialer.visibility = View.GONE
+            b.llDialerTitleTabs.visibility = View.VISIBLE
+            b.etSearchDialer.setText("")
+            renderRecents(callCapableAccounts().size >= 2)
+            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.hideSoftInputFromWindow(b.etSearchDialer.windowToken, 0)
+        }
+        b.etSearchDialer.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
+            override fun onTextChanged(s: CharSequence?, st: Int, b2: Int, c: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                val q = s.toString().trim()
+                val filtered = if (q.isEmpty()) allRecentEntries
+                else allRecentEntries.filter {
+                    it.number.contains(q, ignoreCase = true) ||
+                    it.name.contains(q, ignoreCase = true)
+                }
+                b.rvRecents.visibility = if (filtered.isEmpty()) View.GONE else View.VISIBLE
+                b.rvRecents.adapter = CallLogAdapter(
+                    filtered,
+                    isDualSim = callCapableAccounts().size >= 2,
+                    onCall = { (activity as? MainActivity)?.placeCall(it) },
+                    onShowHistory = { number ->
+                        val entry = filtered.firstOrNull { it.number == number }
+                        val name = entry?.name ?: number
+                        requireActivity().supportFragmentManager.beginTransaction()
+                            .replace(R.id.fragmentContainer, CallHistoryFragment.newInstance(number, name))
+                            .addToBackStack("history")
+                            .commit()
+                        (activity as? MainActivity)?.hideNav()
+                    }
+                )
+            }
+        })
         b.tabAll.setOnClickListener { selectTab(missed = false) }
         b.tabMissed.setOnClickListener { selectTab(missed = true) }
 
@@ -685,6 +734,11 @@ class DialerFragment : Fragment() {
         if (hasResumedOnce) {
             b.etNumber.setText("")
             syncBackspace()
+        }
+        if (b.searchBarDialer.visibility == View.VISIBLE) {
+            b.searchBarDialer.visibility = View.GONE
+            b.llDialerTitleTabs.visibility = View.VISIBLE
+            b.etSearchDialer.setText("")
         }
         setKeypadVisible(true)
         setupCallButtons()

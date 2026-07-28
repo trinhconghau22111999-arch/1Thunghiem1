@@ -55,14 +55,14 @@ class CallLogFragment : Fragment() {
         // Tìm kiếm inline giống Danh bạ
         b.btnRecentsSearch.setOnClickListener {
             b.searchBar.visibility = android.view.View.VISIBLE
-            b.llCallLogHeader.visibility = android.view.View.GONE
+            b.llCallLogTitleTabs.visibility = android.view.View.GONE
             b.etSearch.requestFocus()
             val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
             imm.showSoftInput(b.etSearch, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
         }
         b.btnSearchClose.setOnClickListener {
             b.searchBar.visibility = android.view.View.GONE
-            b.llCallLogHeader.visibility = android.view.View.VISIBLE
+            b.llCallLogTitleTabs.visibility = android.view.View.VISIBLE
             b.etSearch.setText("")
             adapter?.updateItems(allEntries)
             val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
@@ -222,7 +222,7 @@ class CallLogFragment : Fragment() {
     }
 
     fun setHeaderVisible(visible: Boolean) {
-        _b?.llCallLogHeader?.visibility = if (visible) View.VISIBLE else View.GONE
+        _b?.llCallLogTitleTabs?.visibility = if (visible) View.VISIBLE else View.GONE
     }
 
     override fun onDestroyView() {

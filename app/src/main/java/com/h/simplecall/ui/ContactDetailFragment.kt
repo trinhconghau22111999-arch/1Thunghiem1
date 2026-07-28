@@ -2,6 +2,7 @@ package com.h.simplecall.ui
 
 import android.os.Bundle
 import android.provider.CallLog
+import android.provider.ContactsContract
 import android.telephony.SubscriptionManager
 import android.view.LayoutInflater
 import android.view.View
@@ -83,15 +84,15 @@ class ContactDetailFragment : Fragment() {
         b.btnBack.setOnClickListener {
             requireActivity().onBackPressedDispatcher.onBackPressed()
         }
-        b.btnEdit.setOnClickListener { /* TODO: mở màn sửa liên hệ khi có */ }
-        b.btnContactCard.setOnClickListener { /* TODO: mở thẻ liên hệ đầy đủ khi có */ }
-        b.btnMore.setOnClickListener { /* TODO: menu 3 chấm (thêm vào danh bạ, chặn, v.v.) */ }
+        b.btnEdit.setOnClickListener { openContactEditor(number) }
+        b.btnContactCard.setOnClickListener { openFullContactCard(number) }
+        b.btnMore.setOnClickListener { showMoreMenu(it, number) }
 
         // ── Hàng hành động trên thẻ số: gọi / nhắn tin / video ──
         b.btnCallRow.setOnClickListener { (activity as? MainActivity)?.placeCall(number) }
         b.btnMessageRow.setOnClickListener { openSms(number) }
         b.btnVideoRow.setOnClickListener { (activity as? MainActivity)?.placeCall(number) }
-        b.rowZalo.setOnClickListener { /* TODO: mở Zalo nếu app cài trên máy */ }
+        b.rowZalo.setOnClickListener { openZalo(number) }
         b.rowSeeMore.setOnClickListener { /* TODO: mở rộng thêm thông tin liên hệ */ }
         b.rowMeet.setOnClickListener { /* TODO: tích hợp Meet khi có */ }
         b.rowCallSummary.setOnClickListener { /* TODO: tóm tắt cuộc gọi (AI) khi có */ }
@@ -117,6 +118,134 @@ class ContactDetailFragment : Fragment() {
         val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO)
         intent.data = android.net.Uri.parse("smsto:$number")
         runCatching { startActivity(intent) }
+    }
+
+    /** Tra ngược từ số điện thoại ra Uri liên hệ thật trong danh bạ hệ thống (dùng chung cho
+     *  Sửa/Xem thẻ liên hệ), cùng cách CallHistoryFragment.btnEdit đã làm — PhoneLookup tự
+     *  chuẩn hoá số nên đáng tin hơn so với so khớp chuỗi thô. Trả về null nếu số này chưa
+     *  từng được lưu (trường hợp hiếm ở màn này vì màn chỉ mở từ liên hệ ĐÃ LƯU, nhưng vẫn
+     *  phòng hờ nếu liên hệ vừa bị xoá ở nơi khác trong lúc đang xem). */
+    private fun lookupContactUri(number: String): android.net.Uri? {
+        return try {
+            val uri = android.net.Uri.withAppendedPath(
+                ContactsContract.PhoneLookup.CONTENT_FILTER_URI, android.net.Uri.encode(number)
+            )
+            requireContext().contentResolver.query(
+                uri, arrayOf(ContactsContract.PhoneLookup.LOOKUP_KEY, ContactsContract.PhoneLookup._ID),
+                null, null, null
+            )?.use { cur ->
+                if (cur.moveToFirst()) {
+                    ContactsContract.Contacts.getLookupUri(cur.getLong(1), cur.getString(0))
+                } else null
+            }
+        } catch (_: Exception) { null }
+    }
+
+    /** Nút bút chì: mở màn sửa liên hệ hệ thống. Nếu vì lý do gì đó không còn tra ra được liên
+     *  hệ (ví dụ vừa bị xoá ở app Danh bạ khác trong lúc đang xem màn này), rơi về tạo mới với
+     *  số đã điền sẵn thay vì im lặng không làm gì. */
+    private fun openContactEditor(number: String) {
+        val contactUri = lookupContactUri(number)
+        try {
+            if (contactUri != null) {
+                startActivity(android.content.Intent(android.content.Intent.ACTION_EDIT)
+                    .setDataAndType(contactUri, ContactsContract.Contacts.CONTENT_ITEM_TYPE))
+            } else {
+                startActivity(android.content.Intent(android.content.Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)
+                    .putExtra(ContactsContract.Intents.Insert.PHONE, number))
+            }
+        } catch (_: Exception) {
+            android.widget.Toast.makeText(requireContext(), "Không thể mở màn hình sửa liên hệ", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** Icon thẻ liên hệ: mở thẻ liên hệ ĐẦY ĐỦ của app Danh bạ hệ thống (ảnh đại diện lớn,
+     *  toàn bộ số/email/địa chỉ đã lưu...) — khác với màn rút gọn đang hiện ở đây. */
+    private fun openFullContactCard(number: String) {
+        val contactUri = lookupContactUri(number)
+        if (contactUri == null) {
+            android.widget.Toast.makeText(requireContext(), "Chưa lưu trong danh bạ", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        try {
+            startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, contactUri))
+        } catch (_: Exception) {
+            android.widget.Toast.makeText(requireContext(), "Không thể mở thẻ liên hệ", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** Menu 3 chấm: các thao tác phụ trên liên hệ này — chia sẻ số, hoặc xoá hẳn khỏi danh bạ. */
+    private fun showMoreMenu(anchor: View, number: String) {
+        val popup = android.widget.PopupMenu(requireContext(), anchor)
+        popup.menu.add(0, 1, 0, "Chia sẻ liên hệ")
+        popup.menu.add(0, 2, 1, "Xoá liên hệ")
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                1 -> shareContact(number)
+                2 -> deleteContact(number)
+            }
+            true
+        }
+        popup.show()
+    }
+
+    private fun shareContact(number: String) {
+        try {
+            startActivity(android.content.Intent.createChooser(
+                android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(android.content.Intent.EXTRA_TEXT, number)
+                }, null))
+        } catch (_: Exception) {}
+    }
+
+    /** Xoá liên hệ khỏi danh bạ hệ thống (không chỉ xoá nhật ký cuộc gọi như btnClearLog).
+     *  Yêu cầu xác nhận trước vì đây là thao tác không thể hoàn tác. */
+    private fun deleteContact(number: String) {
+        val contactUri = lookupContactUri(number)
+        if (contactUri == null) {
+            android.widget.Toast.makeText(requireContext(), "Chưa lưu trong danh bạ", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        android.app.AlertDialog.Builder(requireContext())
+            .setTitle("Xoá liên hệ")
+            .setMessage("Xoá liên hệ này khỏi danh bạ? Không thể hoàn tác.")
+            .setPositiveButton("Xoá") { _, _ ->
+                val appContext = requireContext().applicationContext
+                bgExecutor.execute {
+                    try { appContext.contentResolver.delete(contactUri, null, null) }
+                    catch (e: Exception) { android.util.Log.e("ContactDetailFragment", "Xoá liên hệ thất bại", e) }
+                    mainHandler.post {
+                        if (_b == null || !isAdded) return@post
+                        requireActivity().onBackPressedDispatcher.onBackPressed()
+                    }
+                }
+            }
+            .setNegativeButton("Huỷ", null)
+            .show()
+    }
+
+    /** Mở Zalo nếu máy đã cài (đúng như TODO gốc ghi rõ "nếu app cài trên máy") — Zalo không có
+     *  API/deep-link công khai chính thức để tự động gọi thẳng tới 1 số cụ thể, nên mở đúng
+     *  trang trò chuyện/hồ sơ của số đó qua zalo.me (app Zalo sẽ tự bắt link này nếu đã cài,
+     *  người dùng chỉ cần bấm gọi trong Zalo). Nếu chưa cài, báo rõ thay vì im lặng. */
+    private fun openZalo(number: String) {
+        val pm = requireContext().packageManager
+        val zaloInstalled = try {
+            pm.getPackageInfo("com.zing.zalo", 0); true
+        } catch (_: Exception) { false }
+        if (!zaloInstalled) {
+            android.widget.Toast.makeText(requireContext(), "Chưa cài đặt Zalo trên máy này", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        val digits = number.filter { it.isDigit() }
+        val national = if (digits.startsWith("0")) digits.drop(1) else digits
+        try {
+            startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                android.net.Uri.parse("https://zalo.me/$national")))
+        } catch (_: Exception) {
+            android.widget.Toast.makeText(requireContext(), "Không thể mở Zalo", android.widget.Toast.LENGTH_SHORT).show()
+        }
     }
 
     /** Dựng danh sách "Nhật ký cuộc gọi" bằng tay (không RecyclerView) vì đã nằm trong 1

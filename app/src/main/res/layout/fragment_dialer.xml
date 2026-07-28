@@ -18,7 +18,10 @@
     android:background="@color/bg">
 
     <!-- ── Header cố định: tiêu đề "Gần đây" + tab Tất cả/Cuộc gọi nhỡ + icon tìm kiếm/cài đặt.
-         Ẩn hẳn khi người dùng bắt đầu gõ số (xem DialerFragment.searchSuggestions()). ── -->
+         llDialerHeader (toàn khối, gồm icon-row + searchBar + llDialerTitleTabs) ẩn hẳn khi người
+         dùng bắt đầu gõ số ở bàn phím (xem DialerFragment.searchSuggestions()). Bên trong đó,
+         searchBar và llDialerTitleTabs là 2 khối ANH EM độc lập (không lồng nhau) để có thể
+         hoán đổi ẩn/hiện riêng khi bấm icon tìm kiếm 🔍, không bị ẩn chung một cục như trước. ── -->
     <LinearLayout
         android:id="@+id/llDialerHeader"
         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -46,6 +49,45 @@
                     android:contentDescription="@string/settings" />
             </LinearLayout>
         </FrameLayout>
+
+        <!-- Thanh tìm kiếm inline, giống hệt tab Gần đây (CallLogFragment): ẩn mặc định,
+             lọc trực tiếp trên danh sách allRecentEntries đã tải sẵn. -->
+        <LinearLayout
+            android:id="@+id/searchBarDialer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp" android:paddingEnd="8dp"
+            android:paddingTop="6dp" android:paddingBottom="4dp"
+            android:visibility="gone">
+            <EditText
+                android:id="@+id/etSearchDialer"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_search"
+                android:hint="Tìm số hoặc tên..."
+                android:textSize="15sp"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_hint"
+                android:paddingStart="14dp" android:paddingEnd="14dp"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:singleLine="true" />
+            <ImageButton
+                android:id="@+id/btnSearchCloseDialer"
+                android:layout_width="40dp" android:layout_height="40dp"
+                android:background="@android:color/transparent"
+                android:src="@drawable/ic_arrow_back"
+                android:tint="@color/text_secondary"
+                android:contentDescription="Đóng tìm kiếm" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/llDialerTitleTabs"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical">
 
         <TextView
             android:layout_width="wrap_content" android:layout_height="wrap_content"
@@ -114,6 +156,7 @@
         <View
             android:layout_width="match_parent" android:layout_height="0.5dp"
             android:background="#332B2B2B" />
+        </LinearLayout>
     </LinearLayout>
 
     <!-- ── Vùng nội dung + bàn phím nổi, chiếm hết phần còn lại phía dưới header ── -->

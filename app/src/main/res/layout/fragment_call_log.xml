@@ -5,12 +5,7 @@
     android:orientation="vertical"
     android:background="@color/bg">
 
-    <!-- Icon tìm kiếm + cài đặt góc trên phải -->
-    <LinearLayout
-        android:id="@+id/llCallLogHeader"
-        android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:orientation="vertical">
-
+    <!-- Icon tìm kiếm + cài đặt góc trên phải: LUÔN hiện, không thuộc khối ẩn/hiện khi tìm kiếm -->
     <FrameLayout
         android:layout_width="match_parent" android:layout_height="wrap_content"
         android:paddingTop="16dp" android:paddingEnd="20dp">
@@ -34,16 +29,10 @@
         </LinearLayout>
     </FrameLayout>
 
-    <!-- Tiêu đề "Gần đây" -->
-    <TextView
-        android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:layout_marginStart="28dp" android:layout_marginTop="4dp"
-        android:text="@string/recents_title"
-        android:textSize="34sp"
-        android:textColor="@color/text_primary"
-        android:fontFamily="sans-serif-medium" />
-
-    <!-- Thanh tìm kiếm inline: ẩn mặc định -->
+    <!-- Thanh tìm kiếm inline: ẩn mặc định. Nằm NGOÀI khối tiêu đề+tab (llCallLogTitleTabs) để
+         2 khối này ẩn/hiện HOÁN ĐỔI độc lập nhau — trước đây searchBar bị lồng bên trong khối
+         tiêu đề nên khi ẩn khối tiêu đề để nhường chỗ tìm kiếm, searchBar (con của nó) cũng bị
+         ẩn theo luôn, không hiện ra được. -->
     <LinearLayout
         android:id="@+id/searchBar"
         android:layout_width="match_parent"
@@ -75,6 +64,21 @@
             android:tint="@color/text_secondary"
             android:contentDescription="Đóng tìm kiếm" />
     </LinearLayout>
+
+    <!-- Khối tiêu đề "Gần đây" + 2 tab + divider: ẩn khi đang tìm kiếm, hiện lại khi đóng tìm kiếm -->
+    <LinearLayout
+        android:id="@+id/llCallLogTitleTabs"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+    <!-- Tiêu đề "Gần đây" -->
+    <TextView
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginStart="28dp" android:layout_marginTop="4dp"
+        android:text="@string/recents_title"
+        android:textSize="34sp"
+        android:textColor="@color/text_primary"
+        android:fontFamily="sans-serif-medium" />
 
     <!-- 2 tab: chia đúng 2 cột bằng nhau (mỗi cột 50% màn hình), mỗi chữ căn GIỮA cột của mình -->
     <LinearLayout
