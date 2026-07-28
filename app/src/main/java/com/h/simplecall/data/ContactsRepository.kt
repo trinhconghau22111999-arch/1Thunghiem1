@@ -63,34 +63,71 @@ object ContactsRepository {
         }
     }
 
+    /** TRƯỚC ĐÂY: chỉ truy vấn Phone.CONTENT_URI — bảng này CHỈ chứa các dòng dữ liệu số điện
+     *  thoại, nên bất kỳ liên hệ nào trên máy KHÔNG có số điện thoại nào được lưu (chỉ có email,
+     *  địa chỉ, hoặc chỉ mới tạo tên chưa kịp thêm số...) sẽ bị BỎ SÓT HOÀN TOÀN khỏi danh sách,
+     *  khiến tổng số liên hệ hiển thị trong app luôn ÍT HƠN tổng số liên hệ thật có trên máy
+     *  (so với app Danh bạ/Contacts gốc của Google, vốn liệt kê TẤT CẢ liên hệ bất kể có số hay
+     *  không) — đây chính là lỗi "không thể truy xuất toàn bộ dữ liệu danh bạ trên máy".
+     *
+     *  GIỜ: đọc từ Contacts.CONTENT_URI trước (nguồn liệt kê ĐẦY ĐỦ mọi liên hệ trên máy, không
+     *  phụ thuộc liên hệ đó có số hay không), rồi mới tra thêm số điện thoại (nếu có) cho từng
+     *  liên hệ qua 1 truy vấn Phone.CONTENT_URI duy nhất (không lặp truy vấn theo từng liên hệ -
+     *  tránh vấn đề N+1 query làm chậm máy có nhiều liên hệ). Liên hệ có nhiều số vẫn tách thành
+     *  nhiều dòng như trước (để gọi đúng từng số); liên hệ không có số nào vẫn được GIỮ LẠI với
+     *  number rỗng để tổng số liên hệ khớp đúng với thực tế trên máy. */
     private fun loadFromSystem(context: Context): List<Contact> {
         if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CONTACTS)
             != android.content.pm.PackageManager.PERMISSION_GRANTED) return emptyList()
 
+        // Bước 1: tra số điện thoại của TẤT CẢ liên hệ trong 1 truy vấn duy nhất, gom theo
+        // CONTACT_ID để tra nhanh (O(1)) ở bước 2, không truy vấn lại DB cho từng liên hệ riêng lẻ.
+        val numbersByContactId = mutableMapOf<Long, MutableList<String>>()
+        context.contentResolver.query(
+            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+            arrayOf(ContactsContract.CommonDataKinds.Phone.CONTACT_ID, ContactsContract.CommonDataKinds.Phone.NUMBER),
+            null, null, null
+        )?.use { cur ->
+            val iId  = cur.getColumnIndex(ContactsContract.CommonDataKinds.Phone.CONTACT_ID)
+            val iNum = cur.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+            while (cur.moveToNext()) {
+                val num = cur.getString(iNum) ?: continue
+                numbersByContactId.getOrPut(cur.getLong(iId)) { mutableListOf() }.add(num)
+            }
+        }
+
+        // Bước 2: liệt kê TOÀN BỘ liên hệ trên máy (kể cả liên hệ chưa có số điện thoại nào).
         val list = mutableListOf<Contact>()
         val cur = context.contentResolver.query(
-            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+            ContactsContract.Contacts.CONTENT_URI,
             arrayOf(
-                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-                ContactsContract.CommonDataKinds.Phone.NUMBER,
-                ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI,
-                ContactsContract.CommonDataKinds.Phone.STARRED
+                ContactsContract.Contacts._ID,
+                ContactsContract.Contacts.DISPLAY_NAME,
+                ContactsContract.Contacts.PHOTO_THUMBNAIL_URI,
+                ContactsContract.Contacts.STARRED
             ), null, null,
-            ContactsContract.CommonDataKinds.Phone.SORT_KEY_PRIMARY + " ASC"
+            ContactsContract.Contacts.SORT_KEY_PRIMARY + " ASC"
         ) ?: return list
 
         cur.use {
-            val iName    = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-            val iNum     = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-            val iPhoto   = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI)
-            val iStarred = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.STARRED)
+            val iId      = it.getColumnIndex(ContactsContract.Contacts._ID)
+            val iName    = it.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME)
+            val iPhoto   = it.getColumnIndex(ContactsContract.Contacts.PHOTO_THUMBNAIL_URI)
+            val iStarred = it.getColumnIndex(ContactsContract.Contacts.STARRED)
             while (it.moveToNext()) {
-                list.add(Contact(
-                    name     = it.getString(iName) ?: "",
-                    number   = it.getString(iNum) ?: "",
-                    photoUri = it.getString(iPhoto),
-                    starred  = iStarred >= 0 && it.getInt(iStarred) != 0
-                ))
+                val name     = it.getString(iName) ?: ""
+                val photo    = it.getString(iPhoto)
+                val starred  = iStarred >= 0 && it.getInt(iStarred) != 0
+                val numbers  = numbersByContactId[it.getLong(iId)]
+                if (numbers.isNullOrEmpty()) {
+                    // Liên hệ chưa có số điện thoại nào — vẫn giữ lại (number rỗng) để đếm đủ
+                    // tổng số liên hệ thật trên máy, thay vì biến mất hoàn toàn khỏi danh sách.
+                    list.add(Contact(name = name, number = "", photoUri = photo, starred = starred))
+                } else {
+                    numbers.forEach { num ->
+                        list.add(Contact(name = name, number = num, photoUri = photo, starred = starred))
+                    }
+                }
             }
         }
         // DISPLAY_NAME ASC (SQL) xếp ký tự/số TRƯỚC chữ cái theo bảng mã Unicode, nên các liên

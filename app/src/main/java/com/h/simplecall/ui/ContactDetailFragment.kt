@@ -89,10 +89,22 @@ class ContactDetailFragment : Fragment() {
         b.btnMore.setOnClickListener { showMoreMenu(it, number) }
 
         // ── Hàng hành động trên thẻ số: gọi / nhắn tin / video ──
-        b.btnCallRow.setOnClickListener { (activity as? MainActivity)?.placeCall(number) }
-        b.btnMessageRow.setOnClickListener { openSms(number) }
-        b.btnVideoRow.setOnClickListener { (activity as? MainActivity)?.placeCall(number) }
-        b.rowZalo.setOnClickListener { openZalo(number) }
+        // Từ khi sửa lỗi "thiếu liên hệ không có số điện thoại", màn này có thể được mở với
+        // number rỗng (liên hệ có tên nhưng chưa lưu số nào) — phải chặn gọi/nhắn/Zalo ở đây,
+        // nếu không placeCall("") có thể ném lỗi từ Telecom hoặc gọi nhầm số rỗng.
+        if (number.isBlank()) {
+            val warn = { android.widget.Toast.makeText(requireContext(),
+                "Liên hệ này chưa có số điện thoại — bấm sửa để thêm số", android.widget.Toast.LENGTH_SHORT).show() }
+            b.btnCallRow.setOnClickListener { warn() }
+            b.btnMessageRow.setOnClickListener { warn() }
+            b.btnVideoRow.setOnClickListener { warn() }
+            b.rowZalo.setOnClickListener { warn() }
+        } else {
+            b.btnCallRow.setOnClickListener { (activity as? MainActivity)?.placeCall(number) }
+            b.btnMessageRow.setOnClickListener { openSms(number) }
+            b.btnVideoRow.setOnClickListener { (activity as? MainActivity)?.placeCall(number) }
+            b.rowZalo.setOnClickListener { openZalo(number) }
+        }
         b.rowSeeMore.setOnClickListener { /* TODO: mở rộng thêm thông tin liên hệ */ }
         b.rowMeet.setOnClickListener { /* TODO: tích hợp Meet khi có */ }
         b.rowCallSummary.setOnClickListener { /* TODO: tóm tắt cuộc gọi (AI) khi có */ }
