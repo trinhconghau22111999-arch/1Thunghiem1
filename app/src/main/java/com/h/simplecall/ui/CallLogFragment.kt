@@ -7,6 +7,8 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.CallLog
 import android.telecom.TelecomManager
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -44,11 +46,49 @@ class CallLogFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         b.btnRecentsSettings.setOnClickListener {
-            android.widget.Toast.makeText(requireContext(), "Không có cài đặt", android.widget.Toast.LENGTH_SHORT).show()
+            // Mở cài đặt ứng dụng điện thoại hệ thống
+            try {
+                val intent = android.content.Intent(android.provider.Settings.ACTION_CALL_SETTINGS)
+                startActivity(intent)
+            } catch (_: Exception) {
+                try {
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    intent.data = android.net.Uri.parse("package:com.android.phone")
+                    startActivity(intent)
+                } catch (_: Exception) {
+                    startActivity(android.content.Intent(android.provider.Settings.ACTION_SETTINGS))
+                }
+            }
         }
+        // Tìm kiếm inline giống Danh bạ
         b.btnRecentsSearch.setOnClickListener {
-            android.widget.Toast.makeText(requireContext(), "Tìm kiếm đang được phát triển", android.widget.Toast.LENGTH_SHORT).show()
+            b.searchBar.visibility = android.view.View.VISIBLE
+            b.llCallLogHeader.visibility = android.view.View.GONE
+            b.etSearch.requestFocus()
+            val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            imm.showSoftInput(b.etSearch, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
         }
+        b.btnSearchClose.setOnClickListener {
+            b.searchBar.visibility = android.view.View.GONE
+            b.llCallLogHeader.visibility = android.view.View.VISIBLE
+            b.etSearch.setText("")
+            adapter?.updateItems(allEntries)
+            val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            imm.hideSoftInputFromWindow(b.etSearch.windowToken, 0)
+        }
+        b.etSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
+            override fun onTextChanged(s: CharSequence?, st: Int, b2: Int, c: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                val q = s.toString().trim()
+                val filtered = if (q.isEmpty()) allEntries
+                else allEntries.filter {
+                    it.number.contains(q, ignoreCase = true) ||
+                    it.name.contains(q, ignoreCase = true)
+                }
+                adapter?.updateItems(filtered)
+            }
+        })
         b.tabAll.setOnClickListener { selectTab(missed = false) }
         b.tabMissed.setOnClickListener { selectTab(missed = true) }
 
