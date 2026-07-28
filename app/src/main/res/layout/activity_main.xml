@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <FrameLayout
+            android:id="@+id/fragmentContainer"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/bottomNav"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <com.google.android.material.bottomnavigation.BottomNavigationView
+            android:id="@+id/bottomNav"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:background="@color/bg"
+            app:menu="@menu/bottom_nav"
+            app:itemIconTint="@null"
+            app:itemActiveIndicatorStyle="@style/BottomNavActiveIndicator"
+            app:itemTextColor="@color/nav_selector"
+            app:itemTextAppearanceActive="@style/BottomNavLabel"
+            app:itemTextAppearanceInactive="@style/BottomNavLabel"
+            app:labelVisibilityMode="labeled"
+            app:elevation="0dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- FAB bàn phím số (Gần đây) và FAB tạo liên hệ (Danh bạ)
+             Cùng vị trí: marginEnd=28dp, marginBottom=16dp so với bottom nav
+             = đúng vị trí btnKeypadToggle khi bàn phím đang mở -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabDialpad"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:layout_marginEnd="28dp"
+            android:src="@drawable/ic_dialpad"
+            app:tint="@color/accent_blue"
+            app:backgroundTint="@color/key_bg"
+            app:fabSize="normal"
+            android:contentDescription="@string/open_dialpad"
+            app:layout_constraintBottom_toTopOf="@id/bottomNav"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabAddContact"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:layout_marginEnd="28dp"
+            android:src="@drawable/ic_add"
+            app:tint="@color/text_secondary"
+            app:backgroundTint="@color/key_bg"
+            app:fabSize="normal"
+            android:visibility="gone"
+            android:contentDescription="@string/add_contact"
+            app:layout_constraintBottom_toTopOf="@id/bottomNav"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
