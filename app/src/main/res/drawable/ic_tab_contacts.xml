@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chuyển đổi icon theo trạng thái chọn/chưa chọn - KHÔNG có vòng tròn nền ở cả 2 trạng thái
+     (khác với Gần đây), chỉ đổi màu glyph xám <-> xanh, đúng ảnh mẫu -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_checked="true" android:drawable="@drawable/ic_tab_contacts_blue"/>
+    <item android:drawable="@drawable/ic_tab_contacts_gray"/>
+</selector>
