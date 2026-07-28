@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <!-- Trước đây fillColor đen tuyền (#FF000000), không nơi nào tint đè lên, nên icon
+         bị chìm mất trên nền đen của app ở cả 3 màn hình dùng icon này (Cài đặt chuyển
+         hướng, Lịch sử cuộc gọi, Nhóm liên hệ). Đổi sang màu sáng (text_primary) để luôn
+         thấy rõ, không cần sửa riêng từng layout. -->
+    <path android:fillColor="@color/text_primary"
+        android:pathData="M20,11H7.83l5.59-5.59L12,4l-8,8 8,8 1.41-1.41L7.83,13H20v-2z"/>
+</vector>
