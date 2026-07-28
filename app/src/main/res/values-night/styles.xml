@@ -1,4 +1,8 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Chỉ cần ghi đè đúng phần khác biệt thật sự giữa Sáng/Tối (windowLightStatusBar) -
+         mọi style khác (KeyBtn, BottomNavLabel, Theme.SimpleCall.InCall...) không khai báo ở
+         đây sẽ TỰ ĐỘNG rơi về đúng bản trong values/styles.xml (Android resource fallback),
+         không cần chép lại vì chúng không phụ thuộc màu nền sáng/tối. -->
     <style name="Theme.SimpleCall" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryDark">@color/primary_dark</item>
@@ -6,5 +10,6 @@
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:statusBarColor">@color/bg</item>
         <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
+        <item name="android:windowSoftInputMode">stateAlwaysVisible</item>
     </style>
 </resources>

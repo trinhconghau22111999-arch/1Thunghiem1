@@ -66,5 +66,7 @@
     <string name="tab_all">Tất cả</string>
     <string name="tab_missed">Cuộc gọi nhỡ</string>
     <string name="settings">Cài đặt</string>
+    <string name="settings_display_section">Giao diện</string>
+    <string name="settings_dark_mode">Chế độ tối</string>
     <string name="search">Tìm kiếm</string>
 </resources>

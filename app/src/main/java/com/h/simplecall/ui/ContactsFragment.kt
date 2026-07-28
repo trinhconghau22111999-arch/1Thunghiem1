@@ -58,7 +58,13 @@ class ContactsFragment : Fragment() {
         b.recyclerView.adapter = adapter
         b.recyclerView.itemAnimator = null  // không flash khi update
 
-        b.btnContactsSettings.setOnClickListener { android.widget.Toast.makeText(requireContext(), "Không có cài đặt", android.widget.Toast.LENGTH_SHORT).show() }
+        b.btnContactsSettings.setOnClickListener {
+            requireActivity().supportFragmentManager.beginTransaction()
+                .replace(R.id.fragmentContainer, SettingsFragment.newInstance())
+                .addToBackStack("settings")
+                .commit()
+            (activity as? MainActivity)?.hideNav()
+        }
 
         b.etSearch.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) { adapter.filter(s.toString()) }
@@ -80,8 +86,29 @@ class ContactsFragment : Fragment() {
             }
         })
 
-        // Hiện cache ngay nếu ContactsRepository đã có sẵn (thường là do MainActivity.onCreate()
-        // nạp trước từ lúc mở app) → vào tab = hiện liền, không chờ.
+        requireContext().contentResolver.registerContentObserver(
+            android.provider.ContactsContract.Contacts.CONTENT_URI, true, contactsObserver)
+
+        refreshContacts()
+    }
+
+    // Observer: tự động tải lại khi danh bạ hệ thống thay đổi (thêm/sửa/xoá liên hệ từ nơi khác -
+    // ứng dụng Danh bạ gốc, Gmail đồng bộ, Zalo...) trong lúc đang mở tab này, giống hệt cơ chế
+    // callLogObserver đã dùng ở CallLogFragment.
+    private val contactsObserver = object : android.database.ContentObserver(
+        android.os.Handler(android.os.Looper.getMainLooper())
+    ) {
+        override fun onChange(selfChange: Boolean) {
+            com.h.simplecall.data.ContactsRepository.invalidate()
+            refreshContacts()
+        }
+    }
+
+    /** Hiện cache ngay nếu có (không giật/trắng màn), sau đó LUÔN đọc lại từ hệ thống để đảm
+     *  bảo danh bạ hiển thị đầy đủ/mới nhất (đồng bộ liên hệ vừa thêm/sửa/xoá). */
+    private fun refreshContacts() {
+        if (_b == null || !isAdded) return
+
         com.h.simplecall.data.ContactsRepository.peek()?.let { cached ->
             if (cached.isNotEmpty()) {
                 adapter.updateContacts(cached)
@@ -93,8 +120,6 @@ class ContactsFragment : Fragment() {
             }
         }
 
-        // Luôn đọc lại (đồng bộ liên hệ mới thêm/sửa/xoá) - dùng CHUNG ContactsRepository nên
-        // kết quả cũng được lưu lại cho các lần mở tab/app sau, không riêng lẻ mỗi Fragment.
         viewLifecycleOwner.lifecycleScope.launch {
             val contacts = withContext(Dispatchers.IO) {
                 com.h.simplecall.data.ContactsRepository.getContacts(requireContext())
@@ -226,5 +251,10 @@ class ContactsFragment : Fragment() {
         catch (_: Exception) { Toast.makeText(requireContext(), "Không tìm thấy ứng dụng để tạo liên hệ", Toast.LENGTH_SHORT).show() }
     }
 
-    override fun onDestroyView() { super.onDestroyView(); _b = null }
+    override fun onDestroyView() {
+        super.onDestroyView()
+        try { requireContext().contentResolver.unregisterContentObserver(contactsObserver) }
+        catch (_: Exception) {}
+        _b = null
+    }
 }

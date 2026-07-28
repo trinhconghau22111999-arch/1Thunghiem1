@@ -44,7 +44,11 @@ class CallLogFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         b.btnRecentsSettings.setOnClickListener {
-            android.widget.Toast.makeText(requireContext(), "Không có cài đặt", android.widget.Toast.LENGTH_SHORT).show()
+            requireActivity().supportFragmentManager.beginTransaction()
+                .replace(R.id.fragmentContainer, SettingsFragment.newInstance())
+                .addToBackStack("settings")
+                .commit()
+            (activity as? MainActivity)?.hideNav()
         }
         b.btnRecentsSearch.setOnClickListener {
             android.widget.Toast.makeText(requireContext(), "Tìm kiếm đang được phát triển", android.widget.Toast.LENGTH_SHORT).show()
