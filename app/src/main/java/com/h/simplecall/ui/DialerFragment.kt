@@ -125,8 +125,6 @@ class DialerFragment : Fragment() {
         b.tabAll.setOnClickListener { selectTab(missed = false) }
         b.tabMissed.setOnClickListener { selectTab(missed = true) }
 
-        arguments?.getString("number")?.let { b.etNumber.setText(it) }
-
         setupKeypad(view)
 
         b.btnBackspace.setOnClickListener {
@@ -157,6 +155,11 @@ class DialerFragment : Fragment() {
                 editing = false
             }
         })
+
+        // Điền số tới từ bên ngoài (dán/chia sẻ/link tel:) SAU KHI đã gắn TextWatcher ở trên,
+        // để setText() ở đây tự kích hoạt afterTextChanged() → searchSuggestions() giống hệt
+        // như khi người dùng tự gõ tay từng số — tức đối chiếu danh bạ ngay lập tức.
+        arguments?.getString("number")?.let { b.etNumber.setText(it) }
 
         setupCallButtons()
 

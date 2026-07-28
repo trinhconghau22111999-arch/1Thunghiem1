@@ -121,7 +121,8 @@ class CallLogFragment : Fragment() {
     }
 
     /** Đọc thẳng lịch sử cuộc gọi từ CallLog hệ thống — không dùng Room DB nội bộ nữa.
-     *  Kết quả khớp 100% với ứng dụng điện thoại gốc vì cùng nguồn dữ liệu. */
+     *  Lấy TOÀN BỘ lịch sử đang có trong hệ thống (không giới hạn số dòng), kết quả
+     *  khớp 100% với ứng dụng điện thoại gốc vì cùng nguồn dữ liệu. */
     private fun loadFromSystem() {
         val ctx = context?.applicationContext ?: return
         viewLifecycleOwner.lifecycleScope.launch {
@@ -148,7 +149,7 @@ class CallLogFragment : Fragment() {
             CallLog.Calls.CONTENT_URI,
             projection,
             null, null,
-            "${CallLog.Calls.DATE} DESC LIMIT 200"
+            "${CallLog.Calls.DATE} DESC"
         )?.use { cursor ->
             val iNum      = cursor.getColumnIndex(CallLog.Calls.NUMBER)
             val iName     = cursor.getColumnIndex(CallLog.Calls.CACHED_NAME)
