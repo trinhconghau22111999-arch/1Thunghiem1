@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icon SIM riêng cho màn gọi: hẹp hơn ic_sim_card (scaleX=0.68 = 80%*85%) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <group android:pivotX="12" android:pivotY="12" android:scaleX="0.68">
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M17,2H7C5.9,2 5,2.9 5,4v16c0,1.1 0.9,2 2,2h10c1.1,0 2,-0.9 2,-2V6l-4,-4zM17,20H7V4h9v3h3v13z"/>
+    </group>
+</vector>
