@@ -43,6 +43,39 @@
         android:textColor="@color/text_primary"
         android:fontFamily="sans-serif-medium" />
 
+    <!-- Thanh tìm kiếm inline: ẩn mặc định -->
+    <LinearLayout
+        android:id="@+id/searchBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="12dp" android:paddingEnd="8dp"
+        android:paddingTop="6dp" android:paddingBottom="4dp"
+        android:visibility="gone">
+        <EditText
+            android:id="@+id/etSearch"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_search"
+            android:hint="Tìm số hoặc tên..."
+            android:textSize="15sp"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_hint"
+            android:paddingStart="14dp" android:paddingEnd="14dp"
+            android:imeOptions="actionSearch"
+            android:inputType="text"
+            android:singleLine="true" />
+        <ImageButton
+            android:id="@+id/btnSearchClose"
+            android:layout_width="40dp" android:layout_height="40dp"
+            android:background="@android:color/transparent"
+            android:src="@drawable/ic_arrow_back"
+            android:tint="@color/text_secondary"
+            android:contentDescription="Đóng tìm kiếm" />
+    </LinearLayout>
+
     <!-- 2 tab: chia đúng 2 cột bằng nhau (mỗi cột 50% màn hình), mỗi chữ căn GIỮA cột của mình -->
     <LinearLayout
         android:layout_width="match_parent" android:layout_height="wrap_content"
