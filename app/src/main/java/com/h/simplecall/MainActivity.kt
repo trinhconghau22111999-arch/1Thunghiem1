@@ -491,6 +491,9 @@ class MainActivity : AppCompatActivity() {
         val extras = phoneAccountHandle?.let {
             Bundle().apply { putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, it) }
         }
+        // Lưu lại số vừa quay để CallStateReceiver biết đây là số của cuộc gọi ĐI khi trạng thái
+        // điện thoại chuyển sang OFFHOOK (xem ghi chú trong CallStateReceiver.kt).
+        com.h.simplecall.call.CallStateReceiver.pendingOutgoingNumber = actual
         getSystemService(TelecomManager::class.java)
             ?.placeCall(Uri.fromParts("tel", actual, null), extras)
     }

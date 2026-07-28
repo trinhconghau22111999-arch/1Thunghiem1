@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Khớp với CallRecordingManager.recordingsDir(): getExternalFilesDir(DIRECTORY_MUSIC)/CallRecordings -->
+    <external-files-path name="call_recordings" path="Music/CallRecordings" />
+</paths>
