@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icon im lặng: mic trắng + gạch xéo trắng, giống ảnh mẫu (không đỏ) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <!-- Thân mic -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M12,1C10.34,1 9,2.34 9,4v5c0,1.66 1.34,3 3,3s3,-1.34 3,-3V4C15,2.34 13.66,1 12,1z"/>
+    <!-- Cán mic + đế -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M17,11c0,2.76-2.24,5-5,5s-5,-2.24-5,-5H5c0,3.53 2.61,6.43 6,6.92V21h2v-3.08c3.39,-0.49 6,-3.39 6,-6.92h-2z"/>
+    <!-- Gạch xéo trắng -->
+    <path android:fillColor="#FFFFFFFF"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M3,3 L21,21"/>
+</vector>
