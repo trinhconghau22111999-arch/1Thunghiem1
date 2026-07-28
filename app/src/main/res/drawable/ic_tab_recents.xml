@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chuyển đổi icon theo trạng thái chọn/chưa chọn (thay vì dùng itemIconTint đồng màu,
+     vì icon này cần 2 tông: vòng tròn đổi màu NHƯNG kim đồng hồ luôn trắng cố định) -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_checked="true" android:drawable="@drawable/ic_tab_recents_blue"/>
+    <item android:drawable="@drawable/ic_tab_recents_gray"/>
+</selector>
