@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icon ghi âm: sóng âm (waveform) 6 vạch dọc cao thấp xen kẽ. Trước đây các vạch chỉ nằm
+     trong khoảng x=4->20.4 (chiếm ~68% chiều rộng khung 24 đơn vị, 2 bên còn dư khoảng trống);
+     vì nút dùng scaleType="fitXY" nên khoảng trống đó cũng bị kéo giãn theo khung, khiến các
+     vạch nhìn hẹp hơn hẳn so với chiều ngang thực của nút. Giờ vẽ lại: các vạch trải gần hết
+     chiều ngang (x=1 -> 23), chỉ chừa margin tối thiểu 2 bên. Độ cao từng vạch giữ nguyên như cũ. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <!-- Vạch 1 (thấp) -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M1.00,10 L2.80,10 L2.80,14 L1.00,14 Z"/>
+    <!-- Vạch 2 (cao) -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M5.04,7 L6.84,7 L6.84,17 L5.04,17 Z"/>
+    <!-- Vạch 3 (cao nhất) -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M9.08,5 L10.88,5 L10.88,19 L9.08,19 Z"/>
+    <!-- Vạch 4 (cao) -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M13.12,7 L14.92,7 L14.92,17 L13.12,17 Z"/>
+    <!-- Vạch 5 (thấp) -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M17.16,10 L18.96,10 L18.96,14 L17.16,14 Z"/>
+    <!-- Vạch 6 (cao) -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M21.20,7 L23.00,7 L23.00,17 L21.20,17 Z"/>
+</vector>
