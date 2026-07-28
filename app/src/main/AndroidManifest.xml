@@ -47,27 +47,5 @@
                 <data android:scheme="tel" />
             </intent-filter>
         </activity>
-
-        <activity
-            android:name=".InCallActivity"
-            android:exported="false"
-            android:launchMode="singleTask"
-            android:showOnLockScreen="true"
-            android:turnScreenOn="true"
-            android:showWhenLocked="true"
-            android:theme="@style/Theme.SimpleCall.InCall" />
-
-        <service
-            android:name=".call.MyInCallService"
-            android:exported="true"
-            android:permission="android.permission.BIND_INCALL_SERVICE">
-            <meta-data
-                android:name="android.telecom.IN_CALL_SERVICE_UI"
-                android:value="true" />
-            <intent-filter>
-                <action android:name="android.telecom.InCallService" />
-            </intent-filter>
-        </service>
-
     </application>
 </manifest>
