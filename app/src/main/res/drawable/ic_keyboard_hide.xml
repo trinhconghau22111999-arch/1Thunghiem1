@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icon nút bàn phím khi ĐANG MỞ (bấm để ẨN): 10 chấm (3 hàng x 3 cột + 1 chấm giữa hàng
+     cuối). Khoảng cách giữa các chấm (ngang VÀ dọc) lấy ĐÚNG bằng khoảng cách của icon 9 chấm
+     "bật bàn phím" (ic_dialpad: ngang 9.66 đơn vị, dọc 7.92 đơn vị - ic_dialpad giãn ngang
+     rộng hơn dọc 15%/10% có chủ đích), để 2 icon đồng bộ khoảng cách chấm khi đổi qua lại.
+     Số lượng chấm KHÔNG đổi (vẫn 9+1=10, không giống ic_dialpad có 9). Vì 4 hàng x khoảng cách
+     dọc 7.92 sẽ vượt quá khung 24x24 gốc (3 hàng của ic_dialpad vừa khít 24, nhưng đây có tới
+     4 hàng), nên tăng viewport/kích thước dọc lên 24x28dp (vẫn giữ đúng tỉ lệ 1 đơn vị = 1dp
+     như ic_dialpad, đảm bảo khoảng cách dp thực tế trên màn hình bằng nhau tuyệt đối, không bị
+     co lại do scale viewport). Nút chứa icon đã đủ rộng (72x66dp) nên icon cao hơn 1 chút vẫn
+     nằm gọn, không bị cắt. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="28dp"
+    android:viewportWidth="24" android:viewportHeight="28">
+    <!-- Hàng 1: 3 chấm -->
+    <path android:fillColor="@color/text_secondary" android:pathData="M2.34,2.12m-1.68,0a1.68,1.68 0,1 1,3.36 0a1.68,1.68 0,1 1,-3.36 0"/>
+    <path android:fillColor="@color/text_secondary" android:pathData="M12,2.12m-1.68,0a1.68,1.68 0,1 1,3.36 0a1.68,1.68 0,1 1,-3.36 0"/>
+    <path android:fillColor="@color/text_secondary" android:pathData="M21.66,2.12m-1.68,0a1.68,1.68 0,1 1,3.36 0a1.68,1.68 0,1 1,-3.36 0"/>
+    <!-- Hàng 2: 3 chấm -->
+    <path android:fillColor="@color/text_secondary" android:pathData="M2.34,10.04m-1.68,0a1.68,1.68 0,1 1,3.36 0a1.68,1.68 0,1 1,-3.36 0"/>
+    <path android:fillColor="@color/text_secondary" android:pathData="M12,10.04m-1.68,0a1.68,1.68 0,1 1,3.36 0a1.68,1.68 0,1 1,-3.36 0"/>
+    <path android:fillColor="@color/text_secondary" android:pathData="M21.66,10.04m-1.68,0a1.68,1.68 0,1 1,3.36 0a1.68,1.68 0,1 1,-3.36 0"/>
+    <!-- Hàng 3: 3 chấm -->
+    <path android:fillColor="@color/text_secondary" android:pathData="M2.34,17.96m-1.68,0a1.68,1.68 0,1 1,3.36 0a1.68,1.68 0,1 1,-3.36 0"/>
+    <path android:fillColor="@color/text_secondary" android:pathData="M12,17.96m-1.68,0a1.68,1.68 0,1 1,3.36 0a1.68,1.68 0,1 1,-3.36 0"/>
+    <path android:fillColor="@color/text_secondary" android:pathData="M21.66,17.96m-1.68,0a1.68,1.68 0,1 1,3.36 0a1.68,1.68 0,1 1,-3.36 0"/>
+    <!-- Hàng 4: 1 chấm ở giữa -->
+    <path android:fillColor="@color/text_secondary" android:pathData="M12,25.88m-1.68,0a1.68,1.68 0,1 1,3.36 0a1.68,1.68 0,1 1,-3.36 0"/>
+</vector>
