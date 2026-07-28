@@ -1,0 +1,432 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Root LinearLayout dọc: llDialerHeader (tiêu đề "Gần đây" + tab) LUÔN nằm cố định TRÊN CÙNG,
+  không bị bàn phím che - đúng yêu cầu "trang gần đây chỉ bị che phần dưới, phần trên còn
+  nguyên vẹn". Khi gõ số (raw không rỗng) thì ẩn hẳn header này đi (xem searchSuggestions()),
+  nhường chỗ cho tiêu đề "Tất cả liên hệ" (tvSuggestionsHeader) phía trong frameContent.
+
+  frameContent (weight=1): y hệt cấu trúc overlay cũ - rvRecents chiếm toàn bộ, keypad nổi
+  đè lên phía dưới (gravity=bottom), KHÔNG đẩy recents lên. Khi gõ số: chỉ ẩn llDialerHeader,
+  còn phần khớp/không khớp liên hệ vẫn xử lý y như trước.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/bg">
+
+    <!-- ── Header cố định: tiêu đề "Gần đây" + tab Tất cả/Cuộc gọi nhỡ + icon tìm kiếm/cài đặt.
+         Ẩn hẳn khi người dùng bắt đầu gõ số (xem DialerFragment.searchSuggestions()). ── -->
+    <LinearLayout
+        android:id="@+id/llDialerHeader"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <FrameLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:paddingTop="16dp" android:paddingEnd="20dp">
+            <LinearLayout
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:orientation="horizontal">
+                <ImageButton
+                    android:id="@+id/btnDialerSearch"
+                    android:layout_width="40dp" android:layout_height="40dp"
+                    android:background="@android:color/transparent"
+                    android:src="@drawable/ic_search"
+                    android:contentDescription="@string/search" />
+                <ImageButton
+                    android:id="@+id/btnDialerSettings"
+                    android:layout_width="40dp" android:layout_height="40dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@android:color/transparent"
+                    android:src="@drawable/ic_hexagon_settings"
+                    android:contentDescription="@string/settings" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <TextView
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginStart="28dp" android:layout_marginTop="4dp"
+            android:text="@string/recents_title"
+            android:textSize="34sp"
+            android:textColor="@color/text_primary"
+            android:fontFamily="sans-serif-medium" />
+
+        <LinearLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingTop="16dp">
+
+            <FrameLayout
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1">
+                <LinearLayout
+                    android:id="@+id/tabAll"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal"
+                    android:clickable="true" android:focusable="true">
+                    <TextView
+                        android:id="@+id/tvTabAll"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/tab_all"
+                        android:textSize="16sp" android:textStyle="bold"
+                        android:textColor="@color/text_primary"
+                        android:fontFamily="sans-serif" />
+                    <View
+                        android:id="@+id/tabAllUnderline"
+                        android:layout_width="match_parent" android:layout_height="2dp"
+                        android:layout_marginTop="6dp"
+                        android:background="@color/accent_blue" />
+                </LinearLayout>
+            </FrameLayout>
+
+            <FrameLayout
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1">
+                <LinearLayout
+                    android:id="@+id/tabMissed"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal"
+                    android:clickable="true" android:focusable="true">
+                    <TextView
+                        android:id="@+id/tvTabMissed"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/tab_missed"
+                        android:textSize="16sp"
+                        android:textColor="@color/text_secondary"
+                        android:fontFamily="sans-serif" />
+                    <View
+                        android:id="@+id/tabMissedUnderline"
+                        android:layout_width="match_parent" android:layout_height="2dp"
+                        android:layout_marginTop="6dp"
+                        android:background="@android:color/transparent" />
+                </LinearLayout>
+            </FrameLayout>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent" android:layout_height="0.5dp"
+            android:background="#332B2B2B" />
+    </LinearLayout>
+
+    <!-- ── Vùng nội dung + bàn phím nổi, chiếm hết phần còn lại phía dưới header ── -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+    <!-- ── TẦNG 1: Danh sách gần đây, chiếm toàn bộ khung này ── -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvRecents"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingBottom="280dp" />
+
+    <!-- ── TẦNG 1b: Gợi ý liên hệ khi gõ số (ẩn mặc định) ── -->
+    <LinearLayout
+        android:id="@+id/llSuggestionsWrap"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:paddingBottom="280dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tvSuggestionsHeader"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/all_contacts"
+            android:textSize="14sp"
+            android:textColor="@color/text_secondary"
+            android:fontFamily="sans-serif"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingTop="14dp"
+            android:paddingBottom="8dp" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvSuggestions"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clipToPadding="false" />
+    </LinearLayout>
+
+    <!-- ── TẦNG 1c: Hành động khi không khớp liên hệ (ẩn mặc định) ── -->
+    <LinearLayout
+        android:id="@+id/llNoMatchActions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="10dp"
+        android:paddingTop="8dp"
+        android:visibility="gone">
+
+        <!-- Tạo liên hệ mới, Thêm vào liên hệ hiện có, Gửi SMS, Gọi Meet: 4 HÀNG xếp dọc
+             đồng nhất kiểu danh sách (trước đây 2 mục đầu nằm ngang thành 1 hàng, giờ tách
+             riêng thành hàng của nó, tổng cộng đủ 4 hàng). -->
+        <LinearLayout
+            android:id="@+id/rowCreateContact"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical"
+            android:background="@drawable/bg_settings_row"
+            android:clickable="true" android:focusable="true"
+            android:paddingStart="20dp" android:paddingEnd="20dp"
+            android:paddingTop="14dp" android:paddingBottom="14dp">
+            <ImageView android:layout_width="24dp" android:layout_height="24dp"
+                android:src="@drawable/ic_add" app:tint="@color/white" tools:ignore="MissingClass"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:layout_marginStart="24dp"
+                android:text="@string/create_new_contact"
+                android:textSize="16sp" android:textColor="@color/text_primary" android:fontFamily="sans-serif"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/rowAddToExisting"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical"
+            android:background="@drawable/bg_settings_row"
+            android:clickable="true" android:focusable="true"
+            android:paddingStart="20dp" android:paddingEnd="20dp"
+            android:paddingTop="14dp" android:paddingBottom="14dp">
+            <ImageView android:layout_width="24dp" android:layout_height="24dp"
+                android:src="@drawable/ic_person_add" app:tint="@color/white" tools:ignore="MissingClass"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:layout_marginStart="24dp"
+                android:text="@string/add_to_existing_contact"
+                android:textSize="16sp" android:textColor="@color/text_primary" android:fontFamily="sans-serif"/>
+        </LinearLayout>
+
+        <!-- Gửi SMS và Meet: giữ nguyên dạng hàng danh sách -->
+        <LinearLayout
+            android:id="@+id/rowSendSms"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical"
+            android:background="@drawable/bg_settings_row"
+            android:clickable="true" android:focusable="true"
+            android:paddingStart="20dp" android:paddingEnd="20dp"
+            android:paddingTop="14dp" android:paddingBottom="14dp">
+            <ImageView android:layout_width="24dp" android:layout_height="24dp"
+                android:src="@drawable/ic_message_outline" app:tint="@color/white" tools:ignore="MissingClass"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:layout_marginStart="24dp"
+                android:text="@string/send_sms"
+                android:textSize="16sp" android:textColor="@color/text_primary" android:fontFamily="sans-serif"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/rowVideoMeet"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical"
+            android:background="@drawable/bg_settings_row"
+            android:clickable="true" android:focusable="true"
+            android:paddingStart="20dp" android:paddingEnd="20dp"
+            android:paddingTop="14dp" android:paddingBottom="14dp">
+            <ImageView android:layout_width="24dp" android:layout_height="24dp"
+                android:src="@drawable/ic_video_call" app:tint="@color/white" tools:ignore="MissingClass"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:layout_marginStart="24dp"
+                android:text="@string/video_call_meet"
+                android:textSize="16sp" android:textColor="@color/text_primary" android:fontFamily="sans-serif"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- ── TẦNG 2: Panel keypad NỔI ĐÈ phía dưới, nền đen mờ ── -->
+    <LinearLayout
+        android:id="@+id/panelKeypad"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:background="@color/bg"
+        android:elevation="8dp">
+
+        <!-- Viền trên panel -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#151515" /> <!-- tối hơn @color/divider (#2A2A2A), chỉ riêng viền trên bàn phím -->
+
+        <!-- Ô nhập số: ẩn khi chưa gõ số -->
+        <FrameLayout
+            android:id="@+id/frameNumber"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="10dp"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:visibility="gone">
+
+            <ImageButton
+                android:id="@+id/btnDialMenu"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="center_vertical|start"
+                android:background="@android:color/transparent"
+                android:src="@drawable/ic_more_vert"
+                android:contentDescription="@string/dialpad_options"
+                android:visibility="invisible" />
+
+            <EditText
+                android:id="@+id/etNumber"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:paddingStart="48dp"
+                android:paddingEnd="62dp"
+                android:background="@null"
+                android:inputType="none"
+                android:gravity="center"
+                android:textSize="32sp"
+                android:textColor="@color/text_primary"
+                android:fontFamily="sans-serif-light"
+                android:cursorVisible="false"
+                android:maxLines="1" />
+
+            <ImageButton
+                android:id="@+id/btnBackspace"
+                android:layout_width="62dp"
+                android:layout_height="40dp"
+                android:layout_gravity="center_vertical|end"
+                android:background="@android:color/transparent"
+                android:src="@drawable/ic_backspace"
+                android:contentDescription="@string/cancel"
+                android:visibility="invisible" />
+        </FrameLayout>
+
+        <!-- Bàn phím số -->
+        <GridLayout
+            android:id="@+id/keypad"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:columnCount="3"
+            android:rowCount="4"
+            android:useDefaultMargins="false">
+
+            <Button android:tag="1" style="@style/KeyBtn" android:text="1" android:layout_columnWeight="1" />
+            <Button android:tag="2" style="@style/KeyBtn" android:text="2" android:layout_columnWeight="1" />
+            <Button android:tag="3" style="@style/KeyBtn" android:text="3" android:layout_columnWeight="1" />
+            <Button android:tag="4" style="@style/KeyBtn" android:text="4" android:layout_columnWeight="1" />
+            <Button android:tag="5" style="@style/KeyBtn" android:text="5" android:layout_columnWeight="1" />
+            <Button android:tag="6" style="@style/KeyBtn" android:text="6" android:layout_columnWeight="1" />
+            <Button android:tag="7" style="@style/KeyBtn" android:text="7" android:layout_columnWeight="1" />
+            <Button android:tag="8" style="@style/KeyBtn" android:text="8" android:layout_columnWeight="1" />
+            <Button android:tag="9" style="@style/KeyBtn" android:text="9" android:layout_columnWeight="1" />
+            <Button android:tag="*" style="@style/KeyBtn" android:text="*" android:layout_columnWeight="1" />
+            <Button android:tag="0" style="@style/KeyBtn" android:text="0" android:layout_columnWeight="1" />
+            <Button android:tag="#" style="@style/KeyBtn" android:text="#" android:layout_columnWeight="1" />
+        </GridLayout>
+
+        <!-- Hàng điều khiển: video | gọi | toggle keypad — chia đều 3 cột bằng nhau -->
+        <LinearLayout
+            android:id="@+id/rowDialControls"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingTop="12dp"
+            android:paddingBottom="16dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp">
+
+            <!-- Cột trái: nút video -->
+            <FrameLayout
+                android:id="@+id/btnVideoCall"
+                android:layout_width="0dp" android:layout_height="66dp"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:clickable="true" android:focusable="true"
+                android:contentDescription="@string/video_call">
+                <ImageView android:layout_width="31dp" android:layout_height="31dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_video_call_outline"
+                    android:tint="@color/text_secondary"
+                    tools:ignore="MissingClass"/>
+            </FrameLayout>
+
+            <!-- Cột giữa: nút gọi (1 SIM hoặc 2 SIM) -->
+            <FrameLayout
+                android:layout_width="0dp" android:layout_height="66dp"
+                android:layout_weight="2"
+                android:gravity="center">
+
+                <ImageButton
+                    android:id="@+id/btnCall"
+                    android:layout_width="64dp" android:layout_height="64dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_call_circle"
+                    android:src="@drawable/ic_call"
+                    android:contentDescription="@string/call"
+                    android:visibility="visible" />
+
+                <LinearLayout
+                    android:id="@+id/llCallDual"
+                    android:layout_width="wrap_content" android:layout_height="50dp"
+                    android:layout_gravity="center"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <FrameLayout
+                        android:id="@+id/btnCallSim1"
+                        android:layout_width="79dp" android:layout_height="match_parent"
+                        android:background="@drawable/bg_call_pill_left"
+                        android:clickable="true" android:focusable="true">
+                        <View
+                            android:layout_width="11dp" android:layout_height="match_parent"
+                            android:layout_gravity="end"
+                            android:background="@color/btn_call_pill_right" />
+                        <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                            android:layout_gravity="center" android:src="@drawable/ic_call" tools:ignore="MissingClass"/>
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:layout_gravity="center" android:translationX="8dp" android:translationY="-4dp"
+                            android:text="1" android:textSize="11sp" android:textStyle="bold"
+                            android:textColor="@color/white" android:fontFamily="sans-serif-medium"/>
+                    </FrameLayout>
+
+                    <FrameLayout
+                        android:id="@+id/btnCallSim2"
+                        android:layout_width="79dp" android:layout_height="match_parent"
+                        android:background="@drawable/bg_call_pill_right"
+                        android:clickable="true" android:focusable="true">
+                        <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                            android:layout_gravity="center" android:src="@drawable/ic_call" tools:ignore="MissingClass"/>
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:layout_gravity="center" android:translationX="8dp" android:translationY="-4dp"
+                            android:text="2" android:textSize="11sp" android:textStyle="bold"
+                            android:textColor="@color/white" android:fontFamily="sans-serif-medium"/>
+                    </FrameLayout>
+                </LinearLayout>
+            </FrameLayout>
+
+            <!-- Cột phải: nút toggle bàn phím -->
+            <FrameLayout
+                android:layout_width="0dp" android:layout_height="66dp"
+                android:layout_weight="1"
+                android:background="@android:color/transparent">
+                <ImageButton
+                    android:id="@+id/btnKeypadToggle"
+                    android:layout_width="31dp" android:layout_height="31dp"
+                    android:layout_gravity="center"
+                    android:background="@android:color/transparent"
+                    android:src="@drawable/ic_dialpad"
+                    android:scaleType="fitCenter"
+                    android:tint="@color/text_secondary"
+                    android:contentDescription="@string/open_dialpad" />
+            </FrameLayout>
+
+        </LinearLayout>
+    </LinearLayout>
+
+    </FrameLayout>
+</LinearLayout>
