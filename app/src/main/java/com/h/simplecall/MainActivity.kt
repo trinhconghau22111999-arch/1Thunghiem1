@@ -19,14 +19,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.h.simplecall.call.BlockedNumbersManager
-import com.h.simplecall.call.CallForwardManager
 import com.h.simplecall.call.MissedCallNotifier
 import com.h.simplecall.databinding.ActivityMainBinding
 import com.h.simplecall.ui.CallHistoryFragment
 import com.h.simplecall.ui.CallLogFragment
 import com.h.simplecall.ui.ContactsFragment
 import com.h.simplecall.ui.DialerFragment
-import com.h.simplecall.ui.ForwardSettingsFragment
 
 /** Fragment nào cần biết khi trạng thái "ứng dụng gọi mặc định" thay đổi thì implement cái này. */
 interface DefaultDialerStatusListener {
@@ -88,7 +86,6 @@ class MainActivity : AppCompatActivity() {
             com.h.simplecall.data.local.AppDatabase.warmUp(appCtx)
         }.start()
 
-        CallForwardManager.init(this)
         BlockedNumbersManager.init(this)
         MissedCallNotifier.init(this)
 
@@ -489,8 +486,7 @@ class MainActivity : AppCompatActivity() {
             requestDefaultDialer()
         }
 
-        CallForwardManager.prepareCall(number)
-        val actual = CallForwardManager.resolveNumber(number)
+        val actual = number
         val extras = phoneAccountHandle?.let {
             Bundle().apply { putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, it) }
         }
