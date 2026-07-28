@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/bg">
+
+    <!-- Icon tìm kiếm + cài đặt góc trên phải -->
+    <LinearLayout
+        android:id="@+id/llCallLogHeader"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+    <FrameLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:paddingTop="16dp" android:paddingEnd="20dp">
+        <LinearLayout
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:orientation="horizontal">
+            <ImageButton
+                android:id="@+id/btnRecentsSearch"
+                android:layout_width="40dp" android:layout_height="40dp"
+                android:background="@android:color/transparent"
+                android:src="@drawable/ic_search"
+                android:contentDescription="@string/search" />
+            <ImageButton
+                android:id="@+id/btnRecentsSettings"
+                android:layout_width="40dp" android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:background="@android:color/transparent"
+                android:src="@drawable/ic_hexagon_settings"
+                android:contentDescription="@string/settings" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- Tiêu đề "Gần đây" -->
+    <TextView
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginStart="28dp" android:layout_marginTop="4dp"
+        android:text="@string/recents_title"
+        android:textSize="34sp"
+        android:textColor="@color/text_primary"
+        android:fontFamily="sans-serif-medium" />
+
+    <!-- 2 tab: chia đúng 2 cột bằng nhau (mỗi cột 50% màn hình), mỗi chữ căn GIỮA cột của mình -->
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingTop="16dp">
+
+        <FrameLayout
+            android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1">
+            <LinearLayout
+                android:id="@+id/tabAll"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:clickable="true" android:focusable="true">
+                <TextView
+                    android:id="@+id/tvTabAll"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="@string/tab_all"
+                    android:textSize="16sp" android:textStyle="bold"
+                    android:textColor="@color/text_primary"
+                    android:fontFamily="sans-serif" />
+                <View
+                    android:id="@+id/tabAllUnderline"
+                    android:layout_width="match_parent" android:layout_height="2dp"
+                    android:layout_marginTop="6dp"
+                    android:background="@color/accent_blue" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <FrameLayout
+            android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1">
+            <LinearLayout
+                android:id="@+id/tabMissed"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:clickable="true" android:focusable="true">
+                <TextView
+                    android:id="@+id/tvTabMissed"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="@string/tab_missed"
+                    android:textSize="16sp"
+                    android:textColor="@color/text_secondary"
+                    android:fontFamily="sans-serif" />
+                <View
+                    android:id="@+id/tabMissedUnderline"
+                    android:layout_width="match_parent" android:layout_height="2dp"
+                    android:layout_marginTop="6dp"
+                    android:background="@android:color/transparent" />
+            </LinearLayout>
+        </FrameLayout>
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent" android:layout_height="0.5dp"
+        android:background="#332B2B2B" />
+
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false" />
+
+        <TextView
+            android:id="@+id/tvEmpty"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="Chưa có nhật ký cuộc gọi"
+            android:textSize="15sp"
+            android:textColor="@color/text_secondary"
+            android:fontFamily="sans-serif"
+            android:visibility="gone" />
+    </FrameLayout>
+</LinearLayout>
