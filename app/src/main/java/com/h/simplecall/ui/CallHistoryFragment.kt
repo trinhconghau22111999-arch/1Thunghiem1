@@ -117,13 +117,8 @@ class CallHistoryFragment : Fragment() {
             } catch (_: Exception) {}
         }
 
-        // Nút thêm vào danh bạ
-        b.btnAddContact?.setOnClickListener {
-            try {
-                startActivity(Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)
-                    .putExtra(ContactsContract.Intents.Insert.PHONE, number))
-            } catch (_: Exception) {}
-        }
+        // Bản ghi âm cuộc gọi
+        b.rowCallRecording?.setOnClickListener { CallRecordingListDialog.show(this, number) }
 
         // Xóa lịch sử
         b.btnDeleteLog.setOnClickListener {

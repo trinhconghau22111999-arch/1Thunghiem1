@@ -4,14 +4,18 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.h.simplecall.MainActivity
 import com.h.simplecall.R
 import com.h.simplecall.ThemePrefs
+import com.h.simplecall.call.CallRecordingManager
 import com.h.simplecall.databinding.FragmentSettingsBinding
 
-/** Màn Cài đặt - giống mục cài đặt của app điện thoại gốc trên máy. Hiện tại có mục "Giao diện"
- *  cho phép chọn Sáng/Tối, mặc định SÁNG khi người dùng chưa từng chọn (xem ThemePrefs.kt). */
+/** Màn Cài đặt - giống mục cài đặt của app điện thoại gốc trên máy. Có mục "Giao diện" cho phép
+ *  chọn Sáng/Tối (xem ThemePrefs.kt), và mục "Ghi âm cuộc gọi" bật/tắt tự động ghi âm mỗi cuộc
+ *  gọi (xem CallRecordingManager.kt, CallStateReceiver.kt, CallRecordingService.kt). */
 class SettingsFragment : Fragment() {
 
     private var _b: FragmentSettingsBinding? = null
@@ -41,6 +45,32 @@ class SettingsFragment : Fragment() {
         }
         b.rowDarkMode.setOnClickListener { toggle() }
         b.switchDarkMode.setOnClickListener { toggle() }
+
+        refreshAutoRecordUi()
+        val toggleAutoRecord = {
+            val turningOn = !CallRecordingManager.isEnabled(requireContext())
+            if (turningOn && ContextCompat.checkSelfPermission(requireContext(),
+                    android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                // Quyền micro chưa được cấp (bị từ chối trước đó) - không bật ngầm được, dẫn
+                // người dùng quay lại xin quyền từ màn chính thay vì im lặng bật 1 tính năng
+                // sẽ không hoạt động.
+                Toast.makeText(requireContext(),
+                    "Cần cấp quyền Micro để ghi âm cuộc gọi - vào Cài đặt hệ thống > Ứng dụng để cấp",
+                    Toast.LENGTH_LONG).show()
+            } else {
+                CallRecordingManager.setEnabled(requireContext(), turningOn)
+                refreshAutoRecordUi()
+            }
+        }
+        b.rowAutoRecord.setOnClickListener { toggleAutoRecord() }
+        b.switchAutoRecord.setOnClickListener { toggleAutoRecord() }
+    }
+
+    private fun refreshAutoRecordUi() {
+        if (_b == null || !isAdded) return
+        val enabled = CallRecordingManager.isEnabled(requireContext())
+        b.switchAutoRecord.isChecked = enabled
+        b.tvAutoRecordSubtitle.text = if (enabled) "Đang bật" else "Đang tắt (mặc định)"
     }
 
     private fun refreshDarkModeUi() {
