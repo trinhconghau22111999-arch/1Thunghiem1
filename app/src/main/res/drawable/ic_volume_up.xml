@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Loa + 1 vòng cung nhỏ bên phải (chưa bật loa ngoài), giống ảnh mẫu -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <!-- Thân loa - thêm viền cùng màu với strokeLineJoin="round" để bo tròn nhẹ các góc
+         nhọn (chỉ 1 chút, không đổi hình dạng tổng thể) -->
+    <path android:fillColor="#FFFFFF"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.2"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round"
+        android:pathData="M3,9v6h4l5,5V4L7,9H3z"/>
+    <!-- 1 vòng cung nhỏ bên phải -->
+    <path android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M14.5,8.5 A5,5 0 0 1 14.5,15.5"/>
+</vector>
