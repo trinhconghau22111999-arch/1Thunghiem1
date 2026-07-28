@@ -1,0 +1,18 @@
+# Built artifacts
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+
+# App build outputs (GitHub Actions sẽ build)
+app/build/
+
+# Gradle wrapper jar (cần commit)
+!gradle/wrapper/gradle-wrapper.jar
