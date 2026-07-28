@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icon "mắt kính" cho nhãn phụ dưới phím 1 (hộp thư thoại): 2 vòng tròn RỖNG nối với nhau
+     bằng 1 thanh cầu ngang Ở PHÍA DƯỚI (không phải xuyên giữa như gọng kính thường), đúng
+     mô tả người dùng yêu cầu. Trước đó dùng màu text_secondary #9AA0A6 giống các chữ ABC/DEF...
+     dưới phím khác nhưng nét mảnh (strokeWidth 2) nên trông tối/mờ hơn hẳn so với chữ đặc.
+     Giờ dùng màu sáng hơn #C4C7CC + nét dày hơn (2.6) để độ sáng cảm nhận bằng các phím còn lại. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="20dp" android:height="9dp"
+    android:viewportWidth="32" android:viewportHeight="14">
+    <!-- Tròng kính trái -->
+    <path
+        android:strokeColor="#C4C7CC"
+        android:strokeWidth="2.6"
+        android:fillColor="#00000000"
+        android:pathData="M7,2 A5,5 0 1,0 7,12 A5,5 0 1,0 7,2 Z" />
+    <!-- Tròng kính phải -->
+    <path
+        android:strokeColor="#C4C7CC"
+        android:strokeWidth="2.6"
+        android:fillColor="#00000000"
+        android:pathData="M25,2 A5,5 0 1,0 25,12 A5,5 0 1,0 25,2 Z" />
+    <!-- Cầu nối Ở PHÍA DƯỚI 2 tròng kính (gần đáy vòng tròn) -->
+    <path
+        android:strokeColor="#C4C7CC"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:pathData="M12,11 L20,11" />
+</vector>
