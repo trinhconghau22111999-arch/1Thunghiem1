@@ -152,8 +152,12 @@ class MainActivity : AppCompatActivity() {
 
         if (savedInstanceState == null) {
             val data = intent?.data
-            if (data?.scheme == "tel") {
-                // Mở app qua liên kết "tel:" (vd. từ ứng dụng khác) - ưu tiên xử lý số đó
+            val isExternalNumberIntent = data?.scheme == "tel" ||
+                intent?.action == Intent.ACTION_PROCESS_TEXT ||
+                (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain")
+            if (isExternalNumberIntent) {
+                // Mở app qua liên kết "tel:", hoặc số được dán/chia sẻ từ app khác - ưu tiên
+                // xử lý số đó ngay, không vào màn "Gần đây" mặc định.
                 handleIntent(intent)
             } else {
                 // Mặc định mở app: vào thẳng màn "Gần đây" ĐÃ MỞ SẴN bàn phím số (DialerFragment
@@ -170,14 +174,52 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); handleIntent(intent) }
 
     private fun handleIntent(intent: Intent?) {
-        val data = intent?.data ?: return
-        if (data.scheme == "tel") {
-            supportFragmentManager.beginTransaction()
-                .replace(R.id.fragmentContainer, DialerFragment.newInstanceWithNumber(data.schemeSpecificPart))
-                .addToBackStack("dialpad")
-                .commit()
-            hideNav()
+        if (intent == null) return
+
+        // tel: link (mở từ trình duyệt, tin nhắn, hoặc bấm số trong app khác)
+        val data = intent.data
+        if (data?.scheme == "tel") {
+            openDialerWithNumber(data.schemeSpecificPart)
+            return
         }
+
+        // Số điện thoại được BÔI ĐEN/CHỌN ở app khác rồi chọn app này qua menu "Xử lý văn bản"
+        if (intent.action == Intent.ACTION_PROCESS_TEXT) {
+            val text = intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
+            val number = extractPhoneNumber(text)
+            if (number != null) openDialerWithNumber(number)
+            return
+        }
+
+        // Số điện thoại được CHIA SẺ (share) dạng text từ app khác
+        if (intent.action == Intent.ACTION_SEND && intent.type == "text/plain") {
+            val text = intent.getStringExtra(Intent.EXTRA_TEXT)
+            val number = extractPhoneNumber(text)
+            if (number != null) openDialerWithNumber(number)
+            return
+        }
+    }
+
+    /** Lọc phần SỐ (giữ +, khoảng trắng, gạch ngang, ngoặc để dễ nhận diện, rồi rút gọn) từ 1
+     *  chuỗi văn bản bất kỳ - phòng trường hợp text được chọn/chia sẻ có lẫn thêm chữ khác
+     *  xung quanh (vd. "Gọi mình số 0987654321 nhé"). */
+    private fun extractPhoneNumber(text: String?): String? {
+        if (text.isNullOrBlank()) return null
+        val match = Regex("[+]?[0-9][0-9\\s.\\-()]{5,}[0-9]").find(text) ?: return null
+        val digits = match.value.filter { it.isDigit() || it == '+' }
+        return digits.ifBlank { null }
+    }
+
+    /** Mở thẳng bàn phím quay số với sẵn số điện thoại - dùng chung cho cả 3 nguồn (tel: link,
+     *  Xử lý văn bản, Chia sẻ). Đây vẫn là Activity/task của RIÊNG app này (kiến trúc Android
+     *  Activity chuẩn), tách biệt hoàn toàn khỏi app đã gửi số sang - không có chuyện nhúng
+     *  giao diện app này vào bên trong app kia. */
+    private fun openDialerWithNumber(number: String) {
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.fragmentContainer, DialerFragment.newInstanceWithNumber(number))
+            .addToBackStack("dialpad")
+            .commit()
+        hideNav()
     }
 
     fun navigateTo(f: Fragment) {

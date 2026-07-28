@@ -46,6 +46,22 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="tel" />
             </intent-filter>
+            <!-- Nhận số điện thoại được BÔI ĐEN/CHỌN ở app khác (trình duyệt, tin nhắn, ghi
+                 chú...) qua menu "Xử lý văn bản" (Process text) chuẩn của Android - người dùng
+                 chọn app này trong danh sách, số được chuyển sang để tra danh bạ/gọi. Vẫn mở ra
+                 dưới dạng 1 Activity/task RIÊNG BIỆT hoàn toàn của app này (kiến trúc Android
+                 mặc định), không nhúng/hiển thị đè lên giao diện app nguồn. -->
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <!-- Nhận số điện thoại được CHIA SẺ (share) dạng text từ app khác. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
     </application>
 </manifest>
