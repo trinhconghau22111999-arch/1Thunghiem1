@@ -297,7 +297,7 @@
             android:layout_width="match_parent"
             android:layout_height="0.5dp"
             android:background="#151515"
-            android:alpha="0.4" /> <!-- giảm alpha để viền mờ, nhạt hơn thay vì kẻ đậm -->
+            android:alpha="0.2" /> <!-- giảm alpha để viền mờ, nhạt hơn thay vì kẻ đậm -->
 
         <!-- Ô nhập số: ẩn khi chưa gõ số -->
         <FrameLayout
