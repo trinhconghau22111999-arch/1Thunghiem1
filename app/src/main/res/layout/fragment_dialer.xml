@@ -292,11 +292,13 @@
         android:background="@color/bg"
         android:elevation="8dp">
 
-        <!-- Viền trên panel -->
+        <!-- Viền trên panel - dùng @color/divider (tự đổi theo Sáng/Tối) thay vì mã cứng #151515
+             trước đây, vì màu đó vốn chỉ hợp giao diện Tối và bị quá đậm/dày khi hiện trên nền
+             Sáng (#FFFFFF), khiến viền trông như 1 gạch đen dày thay vì đường phân cách mảnh. -->
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#151515" /> <!-- tối hơn @color/divider (#2A2A2A), chỉ riêng viền trên bàn phím -->
+            android:background="@color/divider" />
 
         <!-- Ô nhập số: ẩn khi chưa gõ số -->
         <FrameLayout
@@ -425,10 +427,10 @@
                         android:layout_width="79dp" android:layout_height="match_parent"
                         android:background="@drawable/bg_call_pill_left"
                         android:clickable="true" android:focusable="true">
-                        <View
-                            android:layout_width="11dp" android:layout_height="match_parent"
-                            android:layout_gravity="end"
-                            android:background="@color/btn_call_pill_right" />
+                        <!-- ĐÃ XÓA: 1 View dải 11dp bên trong từng tô nhầm màu @color/btn_call_pill_right
+                             (đậm hơn, đúng ra chỉ dành riêng cho nút SIM2) lên cạnh phải nút SIM1,
+                             khiến nút SIM1 trông như bị "ăn" 1 phần màu của SIM2. bg_call_pill_left
+                             đã tự fill nguyên khối màu @color/btn_call_sim1 nên không cần lớp phủ này. -->
                         <ImageView android:layout_width="20dp" android:layout_height="20dp"
                             android:layout_gravity="center" android:src="@drawable/ic_call" tools:ignore="MissingClass"/>
                         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"

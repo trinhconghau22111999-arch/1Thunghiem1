@@ -1,15 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- "Gần đây" ĐÃ chọn: vòng tròn xanh dương đặc + kim đồng hồ trắng.
-     Trước đây path vòng tròn ghi "M12,2 m-10,0 a10,10..." khiến tâm bị lệch về (2,2)
-     thay vì (12,12), làm hình bị cắt xén méo mó. Viết lại bằng 2 nửa cung tròn quanh
-     đúng tâm (12,12) bán kính 10. -->
+<!-- "Gần đây" ĐÃ chọn: vòng tròn xanh dương đặc + kim đồng hồ CÙNG MÀU NỀN (tạo hiệu ứng
+     khoét/cutout để nhìn giống kim đồng hồ thật). Trước đây fillColor 2 path kim là #000000
+     (đen cứng) - đúng ra phải là @color/bg (trắng ở Sáng/đen ở Tối) mới khớp với comment gốc
+     "kim đồng hồ luôn trắng cố định": trên nền Sáng #000000 nổi hẳn thành 2 vệt đen dày, sai
+     hoàn toàn ý đồ ban đầu. Ngoài ra path vòng tròn ghi "M12,2 m-10,0 a10,10..." khiến tâm bị
+     lệch về (2,2) thay vì (12,12), làm hình bị cắt xén méo mó. Viết lại bằng 2 nửa cung tròn
+     quanh đúng tâm (12,12) bán kính 10. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp" android:height="24dp"
     android:viewportWidth="24" android:viewportHeight="24">
     <path android:fillColor="@color/accent_blue"
         android:pathData="M12,2 A10,10 0 1,0 12,22 A10,10 0 1,0 12,2 Z"/>
-    <path android:fillColor="#000000"
+    <path android:fillColor="@color/bg"
         android:pathData="M11,6 L13,6 L13,13 L11,13 Z"/>
-    <path android:fillColor="#000000"
+    <path android:fillColor="@color/bg"
         android:pathData="M12,12 L18,12 L18,14 L12,14 Z"/>
 </vector>
