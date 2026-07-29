@@ -561,9 +561,11 @@ class DialerFragment : Fragment() {
             val isDualSim = callCapableAccounts().size >= 2
 
             // Hiện cache ngay nếu đã có (từ lần mở trước, cùng phiên app) → không chờ, không giật/trắng
+            var hasSomethingShown = false
             if (recentsCacheLoaded && cachedRecents.isNotEmpty()) {
                 allRecentEntries = cachedRecents
                 renderRecents(isDualSim)
+                hasSomethingShown = true
             } else {
                 // Cache RAM rỗng (app vừa mở lại từ đầu / bị hệ thống kill hẳn) → đọc cache ĐĨA
                 // (còn nguyên qua mọi lần mở app, khác cache RAM) để hiện NGAY lịch sử cũ trong
@@ -572,12 +574,28 @@ class DialerFragment : Fragment() {
                 if (!diskCached.isNullOrEmpty() && _b != null && isAdded) {
                     allRecentEntries = diskCached
                     renderRecents(isDualSim)
+                    hasSomethingShown = true
                 }
             }
 
             val appContext = requireContext().applicationContext
             bgExecutor.execute {
-                val entries = queryRecents(appContext)
+                val entries = if (!hasSomethingShown) {
+                    // LẦN ĐẦU THẬT SỰ (không có cache RAM lẫn đĩa nào cả) → hiện danh sách LỚN
+                    // DẦN từ trên xuống theo từng đợt 40 dòng ngay trong lúc đang đọc, thay vì
+                    // giữ màn hình trắng tới khi đọc xong toàn bộ mới hiện 1 lần.
+                    queryRecents(appContext) { partial ->
+                        mainHandler.post {
+                            if (_b == null || !isAdded) return@post
+                            allRecentEntries = partial
+                            renderRecents(isDualSim)
+                        }
+                    }
+                } else {
+                    // Đã có gì đó hiện sẵn (cache) rồi - chỉ cần đồng bộ lại thật ở nền, không cần
+                    // hiện dần (tránh danh sách đang hiện bị "giật" lùi về rồi lớn dần lại).
+                    queryRecents(appContext)
+                }
                 com.h.simplecall.data.CallLogCache.save(appContext, entries) // ghi đè cache đĩa với bản mới nhất
                 mainHandler.post {
                     if (_b == null || !isAdded) return@post // fragment đã bị huỷ trong lúc chờ
@@ -646,7 +664,7 @@ class DialerFragment : Fragment() {
      *  tại thời điểm gọi, không phải số CallLog hệ thống tự ghi. */
     /** Đọc thẳng lịch sử cuộc gọi từ CallLog hệ thống — không dùng Room DB nội bộ nữa.
      *  Kết quả khớp 100% với ứng dụng điện thoại gốc vì cùng nguồn dữ liệu. */
-    private fun queryRecents(ctx: Context): List<CallLogEntry> {
+    private fun queryRecents(ctx: Context, onBatch: ((List<CallLogEntry>) -> Unit)? = null): List<CallLogEntry> {
         if (ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.READ_CALL_LOG)
             != android.content.pm.PackageManager.PERMISSION_GRANTED) return emptyList()
         val entries = mutableListOf<CallLogEntry>()
@@ -673,6 +691,10 @@ class DialerFragment : Fragment() {
             val iDate     = cursor.getColumnIndex(CallLog.Calls.DATE)
             val iDuration = cursor.getColumnIndex(CallLog.Calls.DURATION)
             val iSim      = cursor.getColumnIndex(CallLog.Calls.PHONE_ACCOUNT_ID)
+            // Gọi lại onBatch mỗi 40 dòng đọc được (nếu có truyền) để danh sách hiện LỚN DẦN từ
+            // trên xuống ngay trong lúc đang đọc, thay vì đợi đọc hết mới hiện 1 lần - áp dụng
+            // cho lần mở app ĐẦU TIÊN (chưa có cache nào) khi việc đọc mất thời gian đáng kể.
+            var sinceLastBatch = 0
             while (cursor.moveToNext()) {
                 val number   = cursor.getString(iNum) ?: continue
                 var name     = cursor.getString(iName) ?: ""
@@ -700,6 +722,11 @@ class DialerFragment : Fragment() {
                     duration = duration,
                     simSlot  = simSlot
                 ))
+                sinceLastBatch++
+                if (onBatch != null && sinceLastBatch >= 40) {
+                    sinceLastBatch = 0
+                    onBatch(entries.toList())
+                }
             }
         }
         return entries
