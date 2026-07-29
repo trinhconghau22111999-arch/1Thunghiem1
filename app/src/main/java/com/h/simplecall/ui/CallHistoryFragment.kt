@@ -159,7 +159,7 @@ class CallHistoryFragment : Fragment() {
         b.rowSeeMore.setOnClickListener { /* TODO: mở rộng thêm thông tin liên hệ */ }
         b.rowMeet.setOnClickListener { /* TODO: tích hợp Meet khi có */ }
         b.rowCallSummary.setOnClickListener { /* TODO: tóm tắt cuộc gọi (AI) khi có */ }
-        b.rowCallRecording.setOnClickListener { /* TODO: bản ghi âm cuộc gọi khi có */ }
+        b.rowCallRecording.setOnClickListener { CallRecordingListDialog.show(this, number) }
 
         b.btnClearLog.setOnClickListener { clearHistory(number) }
         loadHistoryAsync(number)

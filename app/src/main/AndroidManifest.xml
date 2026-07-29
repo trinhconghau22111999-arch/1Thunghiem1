@@ -11,6 +11,7 @@
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
@@ -78,5 +79,35 @@
                 <action android:name="android.telecom.InCallService" />
             </intent-filter>
         </service>
+
+        <!-- Lắng nghe trạng thái cuộc gọi (đã nhấc máy / đã cúp máy) để bật/tắt ghi âm đúng lúc.
+             Xem CallStateReceiver.kt. -->
+        <receiver
+            android:name=".call.CallStateReceiver"
+            android:exported="true"
+            android:permission="android.permission.READ_PHONE_STATE">
+            <intent-filter>
+                <action android:name="android.intent.action.PHONE_STATE" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Foreground service thực hiện ghi âm cuộc gọi bằng MediaRecorder. Xem
+             CallRecordingService.kt. -->
+        <service
+            android:name=".call.CallRecordingService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+
+        <!-- Cho phép chia sẻ file ghi âm (nằm trong bộ nhớ riêng của app) ra ứng dụng khác
+             (Zalo, Gửi qua email...) mà không cần cấp quyền lưu trữ ngoài. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>
