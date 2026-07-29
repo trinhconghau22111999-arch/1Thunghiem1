@@ -583,12 +583,22 @@ class DialerFragment : Fragment() {
     }
 
     /** Áp bộ lọc tab (Tất cả/Cuộc gọi nhỡ) đang chọn lên allRecentEntries rồi bơm vào adapter.
-     *  Dùng chung cho lần tải đầu tiên VÀ mỗi khi người dùng đổi tab. */
+     *  Dùng chung cho lần tải đầu tiên VÀ mỗi khi người dùng đổi tab.
+     *
+     *  LỖI ĐÃ SỬA: hàm này được gọi TỪ LUỒNG NỀN (sau khi queryRecents() ở loadRecents() chạy
+     *  xong, có thể mất vài trăm ms) - nếu trong lúc chờ đó người dùng đã DÁN/gõ 1 số vào
+     *  etNumber (khiến searchSuggestions() ẩn rvRecents đi để tập trung vào số đang nhập), kết
+     *  quả trả về trễ ở đây sẽ VÔ TÌNH bật lại rvRecents (vì entries không rỗng), khiến danh
+     *  sách "Gần đây" bất ngờ đè lên ngay phía trên số vừa dán/gõ - trông như app "quên" là
+     *  đang nhập số / vừa check số vừa hiện lịch sử chồng lên nhau. Phải luôn kiểm tra ô nhập
+     *  số HIỆN TẠI có đang rỗng không trước khi quyết định hiện rvRecents, chứ không chỉ dựa
+     *  vào entries.isEmpty(). */
     private fun renderRecents(isDualSim: Boolean) {
         val entries = if (showMissedOnly)
             allRecentEntries.filter { it.type == CallLog.Calls.MISSED_TYPE }
         else allRecentEntries
-        b.rvRecents.visibility = if (entries.isEmpty()) View.GONE else View.VISIBLE
+        val isEnteringNumber = b.etNumber.text.isNotEmpty()
+        b.rvRecents.visibility = if (isEnteringNumber || entries.isEmpty()) View.GONE else View.VISIBLE
         b.rvRecents.adapter = CallLogAdapter(
             entries,
             isDualSim = isDualSim,
