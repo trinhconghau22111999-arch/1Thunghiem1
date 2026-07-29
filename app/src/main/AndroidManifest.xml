@@ -63,5 +63,20 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+
+        <!-- BẮT BUỘC để app đủ điều kiện giữ vai trò "Ứng dụng điện thoại mặc định"
+             (RoleManager.ROLE_DIALER) - xem giải thích chi tiết trong CallUiService.kt.
+             KHÔNG được đặt android:exported="false" (tài liệu Android ghi rõ làm vậy có thể
+             khiến hệ thống Telecom không bind được vào service này giữa cuộc gọi). -->
+        <service
+            android:name=".call.CallUiService"
+            android:permission="android.permission.BIND_INCALL_SERVICE"
+            android:exported="true">
+            <meta-data android:name="android.telecom.IN_CALL_SERVICE_UI" android:value="true" />
+            <meta-data android:name="android.telecom.IN_CALL_SERVICE_RINGING" android:value="true" />
+            <intent-filter>
+                <action android:name="android.telecom.InCallService" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

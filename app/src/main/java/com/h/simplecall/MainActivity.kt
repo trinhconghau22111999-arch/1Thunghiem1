@@ -386,38 +386,47 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Có thể gọi lại thủ công (vd. từ màn Cài đặt) nếu người dùng lỡ từ chối lần đầu. */
+    /** Có thể gọi lại thủ công (vd. từ màn Cài đặt) nếu người dùng lỡ từ chối lần đầu.
+     *  BỌC TOÀN BỘ trong try-catch: hàm này chạy TỰ ĐỘNG ngay khi mở app (từ requestPermissions()
+     *  ở onCreate()), nên bất kỳ ngoại lệ nào từ RoleManager/TelecomManager trên thiết bị hoặc
+     *  ROM tùy biến lạ (một số hãng sửa đổi API hệ thống không theo chuẩn AOSP) sẽ làm CẢ APP
+     *  VĂNG NGAY LÚC VỪA MỞ, trước cả khi người dùng kịp thấy giao diện - đúng loại lỗi khó tái
+     *  hiện/khó bắt nếu chỉ đọc code mà không có log crash thật từ máy. */
     fun requestDefaultDialer() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val rm = getSystemService(RoleManager::class.java)
-            if (rm == null) {
-                Toast.makeText(this, "Thiết bị không hỗ trợ đặt ứng dụng gọi mặc định", Toast.LENGTH_LONG).show()
-                return
-            }
-            if (!rm.isRoleAvailable(RoleManager.ROLE_DIALER)) {
-                Toast.makeText(this, "Thiết bị/ROM này không hỗ trợ vai trò ứng dụng gọi mặc định", Toast.LENGTH_LONG).show()
-                return
-            }
-            if (!rm.isRoleHeld(RoleManager.ROLE_DIALER)) {
-                try {
-                    roleLauncher.launch(rm.createRequestRoleIntent(RoleManager.ROLE_DIALER))
-                } catch (_: Exception) {
-                    openManualDefaultAppsSettings()
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val rm = getSystemService(RoleManager::class.java)
+                if (rm == null) {
+                    Toast.makeText(this, "Thiết bị không hỗ trợ đặt ứng dụng gọi mặc định", Toast.LENGTH_LONG).show()
+                    return
+                }
+                if (!rm.isRoleAvailable(RoleManager.ROLE_DIALER)) {
+                    Toast.makeText(this, "Thiết bị/ROM này không hỗ trợ vai trò ứng dụng gọi mặc định", Toast.LENGTH_LONG).show()
+                    return
+                }
+                if (!rm.isRoleHeld(RoleManager.ROLE_DIALER)) {
+                    try {
+                        roleLauncher.launch(rm.createRequestRoleIntent(RoleManager.ROLE_DIALER))
+                    } catch (_: Exception) {
+                        openManualDefaultAppsSettings()
+                    }
+                }
+            } else {
+                val tm = getSystemService(TelecomManager::class.java) ?: return
+                if (packageName != tm.defaultDialerPackage) {
+                    try {
+                        roleLauncher.launch(Intent(TelecomManager.ACTION_CHANGE_DEFAULT_DIALER).apply {
+                            putExtra(TelecomManager.EXTRA_CHANGE_DEFAULT_DIALER_PACKAGE_NAME, packageName)
+                        })
+                    } catch (_: Exception) {
+                        openManualDefaultAppsSettings()
+                    }
                 }
             }
-        } else {
-            val tm = getSystemService(TelecomManager::class.java) ?: return
-            if (packageName != tm.defaultDialerPackage) {
-                try {
-                    roleLauncher.launch(Intent(TelecomManager.ACTION_CHANGE_DEFAULT_DIALER).apply {
-                        putExtra(TelecomManager.EXTRA_CHANGE_DEFAULT_DIALER_PACKAGE_NAME, packageName)
-                    })
-                } catch (_: Exception) {
-                    openManualDefaultAppsSettings()
-                }
-            }
+            updateDefaultDialerStatus()
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "requestDefaultDialer() lỗi bất ngờ, bỏ qua an toàn thay vì làm văng app", e)
         }
-        updateDefaultDialerStatus()
     }
 
     private fun openManualDefaultAppsSettings() {
