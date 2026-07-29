@@ -425,10 +425,6 @@
                         android:layout_width="79dp" android:layout_height="match_parent"
                         android:background="@drawable/bg_call_pill_left"
                         android:clickable="true" android:focusable="true">
-                        <View
-                            android:layout_width="11dp" android:layout_height="match_parent"
-                            android:layout_gravity="end"
-                            android:background="@color/btn_call_pill_right" />
                         <ImageView android:layout_width="20dp" android:layout_height="20dp"
                             android:layout_gravity="center" android:src="@drawable/ic_call" tools:ignore="MissingClass"/>
                         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
