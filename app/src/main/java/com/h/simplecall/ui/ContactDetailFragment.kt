@@ -85,7 +85,6 @@ class ContactDetailFragment : Fragment() {
             requireActivity().onBackPressedDispatcher.onBackPressed()
         }
         b.btnEdit.setOnClickListener { openContactEditor(number) }
-        b.btnContactCard.setOnClickListener { openFullContactCard(number) }
         b.btnMore.setOnClickListener { showMoreMenu(it, number) }
 
         // ── Hàng hành động trên thẻ số: gọi / nhắn tin / video ──
@@ -168,21 +167,6 @@ class ContactDetailFragment : Fragment() {
             }
         } catch (_: Exception) {
             android.widget.Toast.makeText(requireContext(), "Không thể mở màn hình sửa liên hệ", android.widget.Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    /** Icon thẻ liên hệ: mở thẻ liên hệ ĐẦY ĐỦ của app Danh bạ hệ thống (ảnh đại diện lớn,
-     *  toàn bộ số/email/địa chỉ đã lưu...) — khác với màn rút gọn đang hiện ở đây. */
-    private fun openFullContactCard(number: String) {
-        val contactUri = lookupContactUri(number)
-        if (contactUri == null) {
-            android.widget.Toast.makeText(requireContext(), "Chưa lưu trong danh bạ", android.widget.Toast.LENGTH_SHORT).show()
-            return
-        }
-        try {
-            startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, contactUri))
-        } catch (_: Exception) {
-            android.widget.Toast.makeText(requireContext(), "Không thể mở thẻ liên hệ", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
