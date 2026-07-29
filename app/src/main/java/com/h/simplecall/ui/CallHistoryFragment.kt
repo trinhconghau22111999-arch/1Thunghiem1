@@ -52,7 +52,8 @@ class CallHistoryFragment : Fragment() {
         // Nút back
         b.btnBack.setOnClickListener {
             requireActivity().supportFragmentManager.popBackStack()
-            (activity as? MainActivity)?.showNav()
+            // KHÔNG cần tự hiện lại bottomNav ở đây: MainActivity đã có
+            // addOnBackStackChangedListener tự làm điều đó khi back stack rỗng.
         }
 
         // Tên / số
@@ -75,8 +76,13 @@ class CallHistoryFragment : Fragment() {
         b.tvSimBadge.text = (defaultSimSlot + 1).toString()
         b.tvSubtitle.text = getString(R.string.default_sim_call, defaultSimSlot + 1)
         b.rowSimDefault.setOnClickListener {
-            try { startActivity(Intent(android.provider.Settings.ACTION_CALL_SETTINGS)) }
-            catch (_: Exception) {}
+            // Settings.ACTION_CALL_SETTINGS KHÔNG PHẢI hằng số có thật trong SDK công khai của
+            // Android (gây lỗi biên dịch "Unresolved reference"). Màn hình đúng để đổi SIM mặc
+            // định cho cuộc gọi là TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS (API 23+, public).
+            try { startActivity(Intent(android.telecom.TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS)) }
+            catch (_: Exception) {
+                Toast.makeText(requireContext(), "Máy không hỗ trợ mở màn hình này", Toast.LENGTH_SHORT).show()
+            }
         }
 
         // Nút gọi
