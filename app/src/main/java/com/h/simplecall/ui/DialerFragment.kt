@@ -564,11 +564,21 @@ class DialerFragment : Fragment() {
             if (recentsCacheLoaded && cachedRecents.isNotEmpty()) {
                 allRecentEntries = cachedRecents
                 renderRecents(isDualSim)
+            } else {
+                // Cache RAM rỗng (app vừa mở lại từ đầu / bị hệ thống kill hẳn) → đọc cache ĐĨA
+                // (còn nguyên qua mọi lần mở app, khác cache RAM) để hiện NGAY lịch sử cũ trong
+                // lúc chờ đồng bộ lại thật ở nền, thay vì màn hình trắng.
+                val diskCached = com.h.simplecall.data.CallLogCache.load(requireContext().applicationContext)
+                if (!diskCached.isNullOrEmpty() && _b != null && isAdded) {
+                    allRecentEntries = diskCached
+                    renderRecents(isDualSim)
+                }
             }
 
             val appContext = requireContext().applicationContext
             bgExecutor.execute {
                 val entries = queryRecents(appContext)
+                com.h.simplecall.data.CallLogCache.save(appContext, entries) // ghi đè cache đĩa với bản mới nhất
                 mainHandler.post {
                     if (_b == null || !isAdded) return@post // fragment đã bị huỷ trong lúc chờ
                     cachedRecents = entries
