@@ -110,8 +110,8 @@
         android:id="@+id/gridActions"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:columnCount="4"
-        android:rowCount="1"
+        android:columnCount="3"
+        android:rowCount="2"
         android:layout_marginHorizontal="12dp"
         app:layout_constraintTop_toBottomOf="@id/chronometer"
         app:layout_constraintStart_toStartOf="parent"
@@ -119,9 +119,12 @@
         app:layout_constraintBottom_toTopOf="@id/llAnswerReject"
         app:layout_constraintVertical_bias="0.5">
 
-        <!-- Loa -->
+        <!-- Ghi âm: hiển thị trạng thái tự động ghi âm cuộc gọi (bật/tắt ở Cài đặt) - KHÔNG tự
+             mở MediaRecorder riêng tại đây, vì app đã có CallRecordingService chạy nền tự ghi âm
+             theo trạng thái cuộc gọi hệ thống; nếu bấm nút này cũng tự mở 1 MediaRecorder khác
+             cùng lúc, 2 bên sẽ tranh nhau nguồn ghi âm cuộc gọi và một bên sẽ lỗi/im lặng. -->
         <LinearLayout
-            android:id="@+id/btnSpeaker"
+            android:id="@+id/btnRecord"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_columnWeight="1"
@@ -131,18 +134,19 @@
             android:clickable="true"
             android:focusable="true">
             <ImageView
-                android:id="@+id/ivSpeaker"
+                android:id="@+id/ivRecord"
                 android:layout_width="56dp"
                 android:layout_height="56dp"
-                android:src="@drawable/ic_volume_up"
+                android:src="@drawable/ic_record_dot"
                 android:background="@drawable/bg_action_btn"
                 android:padding="14dp"
                 android:tint="@color/text_primary"
                 android:scaleType="centerInside" />
             <TextView
+                android:id="@+id/tvRecordLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Loa"
+                android:text="@string/start_recording"
                 android:textSize="12sp"
                 android:textColor="@color/text_secondary"
                 android:layout_marginTop="6dp" />
@@ -177,34 +181,6 @@
                 android:layout_marginTop="6dp" />
         </LinearLayout>
 
-        <!-- Phím bấm -->
-        <LinearLayout
-            android:id="@+id/btnDialpad"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_columnWeight="1"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:padding="8dp"
-            android:clickable="true"
-            android:focusable="true">
-            <ImageView
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                android:src="@drawable/ic_dialpad"
-                android:background="@drawable/bg_action_btn"
-                android:padding="14dp"
-                android:tint="@color/text_primary"
-                android:scaleType="centerInside" />
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Phím bấm"
-                android:textSize="12sp"
-                android:textColor="@color/text_secondary"
-                android:layout_marginTop="6dp" />
-        </LinearLayout>
-
         <!-- Giữ máy -->
         <LinearLayout
             android:id="@+id/btnHold"
@@ -234,6 +210,93 @@
                 android:layout_marginTop="6dp" />
         </LinearLayout>
 
+        <!-- Gọi rõ ràng: khử tiếng ồn bằng NoiseSuppressor chuẩn Android. Hiệu quả tuỳ máy -
+             nhiều máy đường tiếng cuộc gọi đi qua modem, app không can thiệp trực tiếp được. -->
+        <LinearLayout
+            android:id="@+id/btnClarity"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="8dp"
+            android:clickable="true"
+            android:focusable="true">
+            <ImageView
+                android:id="@+id/ivClarity"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:src="@drawable/ic_call_clarity"
+                android:background="@drawable/bg_action_btn"
+                android:padding="14dp"
+                android:tint="@color/text_primary"
+                android:scaleType="centerInside" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/call_clarity"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:layout_marginTop="6dp" />
+        </LinearLayout>
+
+        <!-- Thêm cuộc gọi: app chỉ quản lý 1 cuộc gọi tại 1 thời điểm (chưa hỗ trợ ghép/giữ
+             nhiều cuộc gọi cùng lúc an toàn) - báo rõ thay vì giả vờ hoạt động. -->
+        <LinearLayout
+            android:id="@+id/btnAddCall"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="8dp"
+            android:clickable="true"
+            android:focusable="true">
+            <ImageView
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:src="@drawable/ic_add"
+                android:background="@drawable/bg_action_btn"
+                android:padding="14dp"
+                android:tint="@color/text_primary"
+                android:scaleType="centerInside" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/add_call"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:layout_marginTop="6dp" />
+        </LinearLayout>
+
+        <!-- Thêm: tuỳ chọn khác, chưa xây dựng đầy đủ. -->
+        <LinearLayout
+            android:id="@+id/btnMore"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="8dp"
+            android:clickable="true"
+            android:focusable="true">
+            <ImageView
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:src="@drawable/ic_expand_more"
+                android:background="@drawable/bg_action_btn"
+                android:padding="14dp"
+                android:tint="@color/text_primary"
+                android:scaleType="centerInside" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/more_options"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:layout_marginTop="6dp" />
+        </LinearLayout>
+
     </GridLayout>
 
     <!-- ───────── VÙNG DƯỚI: nút Trả lời / Từ chối / Kết thúc ───────── -->
@@ -249,6 +312,41 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- Loa ngoài: CHỈ hiện khi đang DIALING/ACTIVE (ẩn lúc RINGING, cùng lúc với
+             gridActions) - dùng chung mẹo weight với spacerMiddle/btnAnswerWrap bên dưới: 1
+             LinearLayout GONE không cộng vào tổng weight của hàng, nên khi ẩn 2 trong 3 ô có
+             weight, ô còn lại tự động chiếm hết bề rộng còn thiếu - nhờ vậy Kết thúc tự động ở
+             giữa lúc active, và Từ chối/Trả lời tự dàn 2 bên lúc đang đổ chuông, dùng đúng 1
+             layout duy nhất cho cả 2 trường hợp. -->
+        <LinearLayout
+            android:id="@+id/btnSpeakerWrap"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:visibility="gone">
+            <ImageView
+                android:id="@+id/ivSpeaker"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_volume_up"
+                android:background="@drawable/bg_action_btn"
+                android:padding="12dp"
+                android:tint="@color/text_primary"
+                android:scaleType="centerInside"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="Loa ngoài" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Loa ngoài"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:layout_marginTop="6dp" />
+        </LinearLayout>
 
         <!-- Từ chối / Kết thúc (luôn hiện) -->
         <LinearLayout
@@ -310,6 +408,36 @@
                 android:textSize="13sp"
                 android:textColor="@color/text_secondary"
                 android:layout_marginTop="8dp" />
+        </LinearLayout>
+
+        <!-- Phím bấm: CHỈ hiện khi đang DIALING/ACTIVE, cùng cơ chế weight như Loa ở trên. -->
+        <LinearLayout
+            android:id="@+id/btnDialpadWrap"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:visibility="gone">
+            <ImageView
+                android:id="@+id/ivDialpad"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_dialpad"
+                android:background="@drawable/bg_action_btn"
+                android:padding="12dp"
+                android:tint="@color/text_primary"
+                android:scaleType="centerInside"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="Bàn phím" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Phím bấm"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:layout_marginTop="6dp" />
         </LinearLayout>
 
     </LinearLayout>

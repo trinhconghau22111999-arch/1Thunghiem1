@@ -28,6 +28,8 @@ class InCallActivity : AppCompatActivity() {
     private var isMuted   = false
     private var isSpeaker = false
     private var isOnHold  = false
+    private var isClarityOn = false
+    private var noiseSuppressor: android.media.audiofx.NoiseSuppressor? = null
     private var dtmfInput = StringBuilder()
     private var audioManager: AudioManager? = null
 
@@ -64,6 +66,7 @@ class InCallActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         CallUiService.activeCall?.unregisterCallback(callCallback)
+        try { noiseSuppressor?.release() } catch (_: Exception) {}
         super.onDestroy()
     }
 
@@ -112,6 +115,8 @@ class InCallActivity : AppCompatActivity() {
         b.tvCallStatus.text = "Đang đổ chuông..."
         b.chronometer.visibility = View.GONE
         b.gridActions.visibility = View.GONE
+        b.btnSpeakerWrap.visibility = View.GONE
+        b.btnDialpadWrap.visibility = View.GONE
         // Hiện cả 2 nút: Từ chối (trái) + Trả lời (phải)
         b.spacerMiddle.visibility = View.VISIBLE
         b.btnAnswerWrap.visibility = View.VISIBLE
@@ -122,6 +127,8 @@ class InCallActivity : AppCompatActivity() {
         b.tvCallStatus.text = "Đang gọi..."
         b.chronometer.visibility = View.GONE
         b.gridActions.visibility = View.VISIBLE
+        b.btnSpeakerWrap.visibility = View.VISIBLE
+        b.btnDialpadWrap.visibility = View.VISIBLE
         b.spacerMiddle.visibility = View.GONE
         b.btnAnswerWrap.visibility = View.GONE
         b.tvDeclineLabel.text = "Kết thúc"
@@ -135,6 +142,8 @@ class InCallActivity : AppCompatActivity() {
             b.chronometer.visibility = View.VISIBLE
         }
         b.gridActions.visibility = View.VISIBLE
+        b.btnSpeakerWrap.visibility = View.VISIBLE
+        b.btnDialpadWrap.visibility = View.VISIBLE
         b.spacerMiddle.visibility = View.GONE
         b.btnAnswerWrap.visibility = View.GONE
         b.tvDeclineLabel.text = "Kết thúc"
@@ -164,8 +173,9 @@ class InCallActivity : AppCompatActivity() {
             }
         }
 
-        // Loa ngoài
-        b.btnSpeaker.setOnClickListener {
+        // Loa ngoài — nền tròn đổi hẳn sang xanh dương (accent_blue) + icon trắng khi BẬT, thay
+        // vì chỉ đổi màu icon mờ nhạt như trước - dễ nhận biết trạng thái đang bật/tắt hơn hẳn.
+        b.ivSpeaker.setOnClickListener {
             isSpeaker = !isSpeaker
             audioManager?.isSpeakerphoneOn = isSpeaker
             b.ivSpeaker.setBackgroundResource(
@@ -185,7 +195,7 @@ class InCallActivity : AppCompatActivity() {
         }
 
         // Phím bấm DTMF
-        b.btnDialpad.setOnClickListener {
+        b.ivDialpad.setOnClickListener {
             b.dialpadOverlay.visibility = View.VISIBLE
         }
 
@@ -202,6 +212,58 @@ class InCallActivity : AppCompatActivity() {
                 b.ivHold.setBackgroundResource(R.drawable.bg_action_btn_active)
                 b.ivHold.setColorFilter(getColor(R.color.white))
             }
+        }
+
+        // Ghi âm: KHÔNG tự mở MediaRecorder riêng (xem giải thích trong layout XML) - chỉ cho
+        // biết trạng thái tự động ghi âm hiện tại (bật/tắt ở Cài đặt), tránh xung đột với
+        // CallRecordingService đang tự chạy nền theo trạng thái cuộc gọi hệ thống.
+        val autoRecordOn = com.h.simplecall.call.CallRecordingManager.isEnabled(this)
+        b.tvRecordLabel.text = if (autoRecordOn) "Đang ghi âm" else getString(R.string.start_recording)
+        if (autoRecordOn) {
+            b.ivRecord.setBackgroundResource(R.drawable.bg_action_btn_active)
+            b.ivRecord.setColorFilter(getColor(R.color.white))
+        }
+        b.btnRecord.setOnClickListener {
+            Toast.makeText(this,
+                if (com.h.simplecall.call.CallRecordingManager.isEnabled(this))
+                    "Cuộc gọi này đang được tự động ghi âm (bật ở Cài đặt)"
+                else "Tự động ghi âm đang TẮT - bật ở Cài đặt nếu muốn ghi âm cuộc gọi",
+                Toast.LENGTH_LONG).show()
+        }
+
+        // "Gọi rõ ràng": khử tiếng ồn bằng NoiseSuppressor chuẩn Android. Hiệu quả tuỳ máy - nhiều
+        // máy đường tiếng cuộc gọi đi qua modem, ứng dụng thường không can thiệp trực tiếp được.
+        b.btnClarity.setOnClickListener {
+            isClarityOn = !isClarityOn
+            try {
+                if (isClarityOn) {
+                    if (android.media.audiofx.NoiseSuppressor.isAvailable()) {
+                        noiseSuppressor = android.media.audiofx.NoiseSuppressor.create(0)
+                        noiseSuppressor?.enabled = true
+                        b.ivClarity.setBackgroundResource(R.drawable.bg_action_btn_active)
+                        b.ivClarity.setColorFilter(getColor(R.color.white))
+                    } else {
+                        Toast.makeText(this, "Máy không hỗ trợ khử tiếng ồn", Toast.LENGTH_SHORT).show()
+                        isClarityOn = false
+                    }
+                } else {
+                    noiseSuppressor?.release(); noiseSuppressor = null
+                    b.ivClarity.setBackgroundResource(R.drawable.bg_action_btn)
+                    b.ivClarity.setColorFilter(getColor(R.color.text_primary))
+                }
+            } catch (_: Exception) {
+                Toast.makeText(this, "Máy không hỗ trợ khử tiếng ồn", Toast.LENGTH_SHORT).show()
+                isClarityOn = false
+            }
+        }
+
+        // "Thêm cuộc gọi" và "Thêm": app chỉ quản lý 1 cuộc gọi tại 1 thời điểm - báo rõ thay vì
+        // giả vờ hoạt động, giống các tính năng TODO khác trong app.
+        b.btnAddCall.setOnClickListener {
+            Toast.makeText(this, getString(R.string.feature_coming_soon), Toast.LENGTH_SHORT).show()
+        }
+        b.btnMore.setOnClickListener {
+            Toast.makeText(this, getString(R.string.feature_coming_soon), Toast.LENGTH_SHORT).show()
         }
     }
 

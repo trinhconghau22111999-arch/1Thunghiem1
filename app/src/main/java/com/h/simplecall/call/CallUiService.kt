@@ -90,6 +90,17 @@ class CallUiService : InCallService() {
         activeCall = call
         call.registerCallback(callCallback)
         updateNotification(call, call.state)
+        // TRƯỚC ĐÂY: chỉ setFullScreenIntent() cho trạng thái RINGING (cuộc gọi ĐẾN) - với cuộc
+        // gọi ĐI (bấm gọi từ trong app), notification cho DIALING/ACTIVE chỉ có setContentIntent
+        // (chỉ mở khi người dùng TỰ kéo thanh thông báo ra và bấm vào), nên màn hình cuộc gọi
+        // không bao giờ tự nổi lên - người dùng bấm gọi xong chỉ thấy app của mình, gần như
+        // không điều khiển được cuộc gọi (không thấy nút tắt tiếng/loa ngoài/kết thúc) trừ khi tự
+        // mò vào thông báo. Gọi thẳng startActivity() ở đây đảm bảo màn gọi LUÔN tự hiện ngay lập
+        // tức, cho cả cuộc gọi đến lẫn đi - đây là hành vi bắt buộc phải có của 1 InCallService
+        // đúng chuẩn (ứng dụng điện thoại mặc định), không phải tuỳ chọn.
+        startActivity(Intent(this, InCallActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        })
     }
 
     override fun onCallRemoved(call: Call) {
