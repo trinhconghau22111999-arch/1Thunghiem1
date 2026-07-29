@@ -245,10 +245,13 @@ class CallHistoryFragment : Fragment() {
 
     private fun getDefaultSimSlot(): Int = try {
         if (ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.READ_PHONE_STATE)
-            != android.content.pm.PackageManager.PERMISSION_GRANTED) return 0
-        val sm = requireContext().getSystemService(SubscriptionManager::class.java)
-        val subId = SubscriptionManager.getDefaultVoiceSubscriptionId()
-        sm?.getActiveSubscriptionInfo(subId)?.simSlotIndex ?: 0
+            != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            0
+        } else {
+            val sm = requireContext().getSystemService(SubscriptionManager::class.java)
+            val subId = SubscriptionManager.getDefaultVoiceSubscriptionId()
+            sm?.getActiveSubscriptionInfo(subId)?.simSlotIndex ?: 0
+        }
     } catch (_: Exception) { 0 }
 
     private fun formatNumber(number: String): String {
