@@ -13,6 +13,7 @@ import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import com.h.simplecall.InCallActivity
 import com.h.simplecall.MainActivity
 import com.h.simplecall.R
 import android.telecom.Call
@@ -144,7 +145,7 @@ class CallUiService : InCallService() {
         val nm = getSystemService(NotificationManager::class.java) ?: return
         val name = callerLabel(call)
 
-        val fullScreenIntent = Intent(this, MainActivity::class.java).apply {
+        val fullScreenIntent = Intent(this, InCallActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_USER_ACTION
         }
         val contentPi = PendingIntent.getActivity(this, 0, fullScreenIntent,

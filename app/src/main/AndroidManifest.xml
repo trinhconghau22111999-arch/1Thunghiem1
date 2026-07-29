@@ -25,6 +25,17 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.SimpleCall">
 
+        <!-- Màn hình giao diện gọi: hiện khi có cuộc gọi đến/đang gọi, kể cả khi máy đang khoá. -->
+        <activity
+            android:name=".InCallActivity"
+            android:theme="@style/Theme.SimpleCall.InCall"
+            android:showOnLockScreen="true"
+            android:turnScreenOn="true"
+            android:showWhenLocked="true"
+            android:screenOrientation="portrait"
+            android:launchMode="singleTop"
+            android:exported="false" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
