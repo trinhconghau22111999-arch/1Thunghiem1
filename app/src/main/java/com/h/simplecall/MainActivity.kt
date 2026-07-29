@@ -124,8 +124,14 @@ class MainActivity : AppCompatActivity() {
         supportFragmentManager.addOnBackStackChangedListener {
             val empty = supportFragmentManager.backStackEntryCount == 0
             binding.bottomNav.visibility   = if (empty) View.VISIBLE else View.GONE
-            binding.fabDialpad.visibility  =
-                if (empty && currentNavId != R.id.nav_contacts) View.VISIBLE else View.GONE
+            // DialerFragment (giờ luôn là màn Gần đây) tự có bàn phím riêng, mặc định đã MỞ SẴN -
+            // không cần fabDialpad nổi thêm đè lên khi nó đang hiện rồi. Chỉ hiện fabDialpad nếu
+            // đang KHÔNG phải DialerFragment, HOẶC là DialerFragment nhưng người dùng đã tự thu
+            // gọn bàn phím (isKeypadVisible() == false).
+            val current = supportFragmentManager.findFragmentById(R.id.fragmentContainer)
+            val dialerKeypadAlreadyOpen = current is DialerFragment && current.isKeypadVisible()
+            binding.fabDialpad.visibility =
+                if (empty && currentNavId != R.id.nav_contacts && !dialerKeypadAlreadyOpen) View.VISIBLE else View.GONE
         }
 
         // Khi bấm back từ CallHistoryFragment (mở từ icon "i" ở Gần đây):
@@ -250,7 +256,13 @@ class MainActivity : AppCompatActivity() {
         currentNavId = itemId
         val tag = if (itemId == R.id.nav_contacts) "contacts" else "recents"
         val dest = supportFragmentManager.findFragmentByTag(tag) ?: run {
-            if (itemId == R.id.nav_contacts) ContactsFragment() else CallLogFragment()
+            // Trước đây: CallLogFragment() cho tab Gần đây - một implementation KHÁC HẲN với
+            // DialerFragment (dùng khi mở app lần đầu/bấm FAB bàn phím), không có bàn phím, không
+            // có khái niệm "đang nhập số" -> mỗi lần Danh bạ -> Gần đây lại tạo CallLogFragment
+            // mới, trông như "mất lịch sử" so với màn DialerFragment quen thuộc (có kèm bàn phím,
+            // tự ẩn lịch sử khi đang gõ số). Giờ dùng THỐNG NHẤT 1 DialerFragment() cho mọi lần
+            // vào tab Gần đây, đảm bảo luôn hiện lịch sử (trừ khi đang nhập số) dù vào từ đâu.
+            if (itemId == R.id.nav_contacts) ContactsFragment() else DialerFragment()
         }
         val tx = supportFragmentManager.beginTransaction()
         if (directionChanged) {
@@ -272,13 +284,13 @@ class MainActivity : AppCompatActivity() {
             isTabSwitching = true
             binding.root.postDelayed({ isTabSwitching = false }, 440L)
         }
-        // Tab Danh bạ đã có sẵn nút "+" riêng (fabAddContact) ở đúng vị trí này,
-        // nên phải ẩn FAB bàn phím số đi để không bị đè lên nhau.
+        // Tab Gần đây giờ LUÔN là DialerFragment, tự có sẵn bàn phím nổi riêng (panelKeypad) -
+        // fabDialpad (FAB tròn mở bàn phím) không còn cần thiết ở đây nữa, chỉ gây thừa/đè lên
+        // bàn phím đã hiện sẵn. Ẩn nó ở CẢ 2 tab, giống hệt cách tab Danh bạ đã ẩn từ trước.
+        binding.fabDialpad.visibility = View.GONE
         if (itemId == R.id.nav_contacts) {
-            binding.fabDialpad.visibility = View.GONE
             binding.fabAddContact.visibility = View.VISIBLE
         } else {
-            binding.fabDialpad.visibility = View.VISIBLE
             binding.fabAddContact.visibility = View.GONE
         }
         if (itemId == R.id.nav_recents)

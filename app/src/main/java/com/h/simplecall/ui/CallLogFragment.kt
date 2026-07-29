@@ -1,5 +1,12 @@
 package com.h.simplecall.ui
 
+/** LƯU Ý: kể từ khi tab "Gần đây" ở thanh điều hướng dưới chuyển sang dùng thống nhất
+ *  DialerFragment (xem MainActivity.goToTab()) để tránh 2 implementation khác nhau gây lệch
+ *  hành vi ("quay lại Gần đây từ Danh bạ thì mất lịch sử/không có bàn phím"), class này KHÔNG
+ *  CÒN ĐƯỢC THAM CHIẾU Ở ĐÂU NỮA. Giữ lại file phòng trường hợp cần tham khảo lại logic đọc
+ *  CallLog hệ thống, nhưng không dùng - tránh nhầm sửa nhầm file này mà tưởng đang sửa đúng
+ *  màn "Gần đây" thật (chính là DialerFragment.kt). */
+
 import android.content.Context
 import android.database.ContentObserver
 import android.os.Bundle
