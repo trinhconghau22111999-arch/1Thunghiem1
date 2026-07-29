@@ -235,10 +235,18 @@ class MainActivity : AppCompatActivity() {
     private var isTabSwitching = false
 
     private fun goToTab(itemId: Int, animate: Boolean = true) {
-        if (animate && isTabSwitching) return
         val goingToContacts = itemId == R.id.nav_contacts
         val wasContacts = currentNavId == R.id.nav_contacts
-        val directionChanged = animate && goingToContacts != wasContacts
+        // TRƯỚC ĐÂY: "if (animate && isTabSwitching) return" ở đây - thoát HẲN, không đổi
+        // Fragment, mỗi khi bấm tab trong lúc animation của lần chuyển trước còn đang chạy
+        // (cửa sổ 440ms bên dưới). Nhưng BottomNavigationView tự tô sáng icon vừa bấm NGAY LẬP
+        // TỨC theo đúng hành vi mặc định của widget, không phụ thuộc listener này có xử lý gì
+        // hay không - nên icon đã đổi sang tab mới trong khi nội dung màn hình bị "return" sớm,
+        // đứng yên ở tab cũ → đúng lỗi "icon Danh bạ nhưng hiện trang Gần đây" đã gặp khi bấm
+        // tab nhanh/liên tục. Giờ KHÔNG return sớm nữa - chỉ bỏ qua HIỆU ỨNG TRƯỢT (chuyển tức
+        // thì, không animation) khi đang trong cửa sổ debounce, còn nội dung LUÔN được đổi đúng
+        // theo tab vừa bấm, đảm bảo icon và nội dung không bao giờ lệch nhau.
+        val directionChanged = animate && !isTabSwitching && goingToContacts != wasContacts
         currentNavId = itemId
         val tag = if (itemId == R.id.nav_contacts) "contacts" else "recents"
         val dest = supportFragmentManager.findFragmentByTag(tag) ?: run {
@@ -256,11 +264,14 @@ class MainActivity : AppCompatActivity() {
         // nhau khi bấm đổi tab liên tục/rất nhanh - nhưng việc ép dựng layout Fragment mới chạy
         // ĐỒNG BỘ ngay tại đây khiến toàn bộ animation bị "khựng" 1 nhịp (đứng hình) trước khi
         // kịp hiện ra, vì hệ thống phải dựng xong toàn bộ view mới cho animation chạy.
-        // Thay bằng debounce nhẹ: khi đang trong lúc animation (isTabSwitching=true), lờ đi các
-        // lần bấm đổi tab dồn dập tiếp theo, để FragmentManager xử lý transaction bình thường
-        // (bất đồng bộ, mượt hơn) mà vẫn tránh được tình trạng chồng transaction gây crash.
-        isTabSwitching = true
-        binding.root.postDelayed({ isTabSwitching = false }, 440L)
+        // Debounce nhẹ: chỉ đặt cờ khi THỰC SỰ vừa bắt đầu 1 animation trượt (directionChanged),
+        // để lần bấm tiếp theo trong lúc animation còn chạy sẽ chuyển tức thì (không animation)
+        // thay vì animation chồng animation gây giật - nhưng KHÔNG BAO GIỜ drop việc đổi nội
+        // dung như trước.
+        if (directionChanged) {
+            isTabSwitching = true
+            binding.root.postDelayed({ isTabSwitching = false }, 440L)
+        }
         // Tab Danh bạ đã có sẵn nút "+" riêng (fabAddContact) ở đúng vị trí này,
         // nên phải ẩn FAB bàn phím số đi để không bị đè lên nhau.
         if (itemId == R.id.nav_contacts) {
