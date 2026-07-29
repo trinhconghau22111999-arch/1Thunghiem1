@@ -111,6 +111,18 @@ class CallLogFragment : Fragment() {
         loadFromSystem()
     }
 
+    override fun onResume() {
+        super.onResume()
+        // TRƯỚC ĐÂY chỉ gọi loadFromSystem() một lần duy nhất trong onViewCreated() - nếu vì bất
+        // kỳ lý do gì (chuyển tab nhanh, coroutine bị timing lệch...) lần tải đầu không kịp hiển
+        // thị đúng, màn hình sẽ đứng yên ở danh sách rỗng CHO ĐẾN KHI Fragment này bị huỷ và tạo
+        // lại từ đầu — đúng triệu chứng "qua tab Danh bạ rồi quay lại Gần đây thì mất lịch sử,
+        // phải bấm mở bàn phím (tạo DialerFragment mới, có tải lại) mới thấy lại". Gọi lại
+        // loadFromSystem() mỗi khi tab này được hiển thị lại đảm bảo danh sách luôn được làm mới,
+        // không phụ thuộc vào đúng 1 lần tải lúc tạo Fragment có thành công hay không.
+        loadFromSystem()
+    }
+
     private fun callCapableAccountCount(): Int {
         if (ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.READ_PHONE_STATE)
             != android.content.pm.PackageManager.PERMISSION_GRANTED) return 0
