@@ -75,7 +75,7 @@ class ContactDetailFragment : Fragment() {
         // Số SIM trên icon gọi
         b.tvCallSimNum.text = defaultSimSlot.toString()
 
-        b.tvNumber.text = formatNumberGrouped(number)
+        b.tvNumber.text = if (number.isBlank()) getString(R.string.no_phone_number) else formatNumberGrouped(number)
         val digitsOnly = number.filter { it.isDigit() }
         val nationalNumber = if (digitsOnly.startsWith("0")) digitsOnly.drop(1) else digitsOnly
         b.tvZalo.text = getString(R.string.zalo_call_with_number, nationalNumber)
@@ -91,14 +91,22 @@ class ContactDetailFragment : Fragment() {
         // ── Hàng hành động trên thẻ số: gọi / nhắn tin / video ──
         // Từ khi sửa lỗi "thiếu liên hệ không có số điện thoại", màn này có thể được mở với
         // number rỗng (liên hệ có tên nhưng chưa lưu số nào) — phải chặn gọi/nhắn/Zalo ở đây,
-        // nếu không placeCall("") có thể ném lỗi từ Telecom hoặc gọi nhầm số rỗng.
+        // nếu không placeCall("") có thể ném lỗi từ Telecom hoặc gọi nhầm số rỗng. Trước đây chỉ
+        // chặn bằng Toast khi bấm nhưng 3 icon vẫn hiện ĐẦY MÀU như đang hoạt động bình thường -
+        // khiến người dùng tưởng app lỗi (mất số, gọi không phản hồi). Giờ làm mờ hẳn (alpha) +
+        // ẨN LUÔN cả hàng Zalo và "Xem thêm" vì không còn gì để gọi/xem thêm khi chưa có số.
         if (number.isBlank()) {
             val warn = { android.widget.Toast.makeText(requireContext(),
                 "Liên hệ này chưa có số điện thoại — bấm sửa để thêm số", android.widget.Toast.LENGTH_SHORT).show() }
             b.btnCallRow.setOnClickListener { warn() }
             b.btnMessageRow.setOnClickListener { warn() }
             b.btnVideoRow.setOnClickListener { warn() }
-            b.rowZalo.setOnClickListener { warn() }
+            b.btnCallRow.alpha = 0.35f
+            b.btnMessageRow.alpha = 0.35f
+            b.btnVideoRow.alpha = 0.35f
+            b.divBeforeZalo.visibility = View.GONE
+            b.rowZalo.visibility = View.GONE
+            b.rowSeeMore.visibility = View.GONE
         } else {
             b.btnCallRow.setOnClickListener { (activity as? MainActivity)?.placeCall(number) }
             b.btnMessageRow.setOnClickListener { openSms(number) }
@@ -372,6 +380,7 @@ class ContactDetailFragment : Fragment() {
     /** Xoá nhật ký cuộc gọi của số này khỏi CallLog hệ thống. */
     private fun clearHistory(number: String) {
         val clean = number.filter { it.isDigit() }
+        if (clean.isEmpty()) return // number rỗng -> LIKE '%%' sẽ khớp TOÀN BỘ nhật ký, không phải riêng liên hệ này - chặn hẳn
         val appContext = requireContext().applicationContext
         bgExecutor.execute {
             try {
@@ -392,6 +401,7 @@ class ContactDetailFragment : Fragment() {
         if (androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.READ_CALL_LOG)
             != android.content.pm.PackageManager.PERMISSION_GRANTED) return emptyList()
         val clean = number.filter { it.isDigit() }
+        if (clean.isEmpty()) return emptyList() // tránh LIKE '%%' khớp TOÀN BỘ nhật ký cuộc gọi trên máy
         val entries = mutableListOf<CallLogEntry>()
         val projection = arrayOf(
             CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME,

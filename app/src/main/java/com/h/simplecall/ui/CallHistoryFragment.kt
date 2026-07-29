@@ -81,7 +81,7 @@ class CallHistoryFragment : Fragment() {
             catch (_: Exception) {}
         }
 
-        b.tvNumber.text = formatNumberGrouped(number)
+        b.tvNumber.text = if (number.isBlank()) getString(R.string.no_phone_number) else formatNumberGrouped(number)
         val digitsOnly = number.filter { it.isDigit() }
         val nationalNumber = if (digitsOnly.startsWith("0")) digitsOnly.drop(1) else digitsOnly
         b.tvZalo.text = getString(R.string.zalo_call_with_number, nationalNumber)
@@ -95,13 +95,22 @@ class CallHistoryFragment : Fragment() {
         b.btnMore.setOnClickListener { showMoreMenu(it, number) }
 
         // ── Hàng hành động trên thẻ số: gọi / nhắn tin / video ──
+        // Làm mờ hẳn (alpha) + ẨN LUÔN hàng Zalo và "Xem thêm" khi không có số, thay vì để 3 icon
+        // hiện đầy màu như đang hoạt động bình thường rồi chỉ báo lỗi khi bấm - dễ khiến người
+        // dùng tưởng app bị lỗi (mất số, gọi không phản hồi) thay vì hiểu đây là liên hệ/số lạ
+        // chưa có số điện thoại nào được lưu.
         if (number.isBlank()) {
             val warn = { android.widget.Toast.makeText(requireContext(),
                 "Số điện thoại không hợp lệ", android.widget.Toast.LENGTH_SHORT).show() }
             b.btnCallRow.setOnClickListener { warn() }
             b.btnMessageRow.setOnClickListener { warn() }
             b.btnVideoRow.setOnClickListener { warn() }
-            b.rowZalo.setOnClickListener { warn() }
+            b.btnCallRow.alpha = 0.35f
+            b.btnMessageRow.alpha = 0.35f
+            b.btnVideoRow.alpha = 0.35f
+            b.divBeforeZalo.visibility = View.GONE
+            b.rowZalo.visibility = View.GONE
+            b.rowSeeMore.visibility = View.GONE
         } else {
             b.btnCallRow.setOnClickListener { (activity as? MainActivity)?.placeCall(number) }
             b.btnMessageRow.setOnClickListener { openSms(number) }
@@ -378,6 +387,7 @@ class CallHistoryFragment : Fragment() {
 
     private fun clearHistory(number: String) {
         val clean = number.filter { it.isDigit() }
+        if (clean.isEmpty()) return // number rỗng -> LIKE '%%' sẽ khớp TOÀN BỘ nhật ký, không phải riêng liên hệ này - chặn hẳn
         val appContext = requireContext().applicationContext
         bgExecutor.execute {
             try {
@@ -397,6 +407,7 @@ class CallHistoryFragment : Fragment() {
         if (androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.READ_CALL_LOG)
             != android.content.pm.PackageManager.PERMISSION_GRANTED) return emptyList()
         val clean = number.filter { it.isDigit() }
+        if (clean.isEmpty()) return emptyList() // tránh LIKE '%%' khớp TOÀN BỘ nhật ký cuộc gọi trên máy
         val entries = mutableListOf<CallLogEntry>()
         val projection = arrayOf(
             CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME,

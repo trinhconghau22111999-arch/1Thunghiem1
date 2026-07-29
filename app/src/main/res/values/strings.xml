@@ -37,6 +37,7 @@
     <string name="cancel">Hủy</string>
     <string name="call_history">Lịch sử cuộc gọi</string>
     <string name="number_type_mobile">Di động</string>
+    <string name="no_phone_number">Chưa có số điện thoại đã lưu</string>
     <string name="default_sim_call">Gọi bằng SIM%1$d (mặc định)</string>
     <string name="zalo_call_with_number">Gọi điện Zalo (+84%1$s)</string>
     <string name="call_type_missed">Cuộc gọi nhỡ</string>
