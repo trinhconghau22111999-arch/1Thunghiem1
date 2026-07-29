@@ -500,14 +500,21 @@ class MainActivity : AppCompatActivity() {
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CALL_PHONE)
             != PackageManager.PERMISSION_GRANTED) { requestPermissions(); return }
 
+        val actual = number
+
         if (!isDefaultDialer()) {
-            Toast.makeText(this,
-                "Hãy đặt \"${getString(R.string.app_name)}\" làm ứng dụng gọi điện mặc định để dùng giao diện gọi riêng",
-                Toast.LENGTH_LONG).show()
-            requestDefaultDialer()
+            // Không phải default dialer → dùng màn hình gọi hệ thống (ACTION_CALL)
+            // thay vì TelecomManager.placeCall() chỉ hoạt động khi là default dialer.
+            try {
+                startActivity(android.content.Intent(android.content.Intent.ACTION_CALL,
+                    Uri.fromParts("tel", actual, null)))
+            } catch (_: Exception) {
+                startActivity(android.content.Intent(android.content.Intent.ACTION_DIAL,
+                    Uri.fromParts("tel", actual, null)))
+            }
+            return
         }
 
-        val actual = number
         val extras = phoneAccountHandle?.let {
             Bundle().apply { putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, it) }
         }

@@ -120,9 +120,7 @@ object ContactsRepository {
                 val starred  = iStarred >= 0 && it.getInt(iStarred) != 0
                 val numbers  = numbersByContactId[it.getLong(iId)]
                 if (numbers.isNullOrEmpty()) {
-                    // Liên hệ chưa có số điện thoại nào — vẫn giữ lại (number rỗng) để đếm đủ
-                    // tổng số liên hệ thật trên máy, thay vì biến mất hoàn toàn khỏi danh sách.
-                    list.add(Contact(name = name, number = "", photoUri = photo, starred = starred))
+                    // Liên hệ không có số điện thoại → bỏ qua hoàn toàn (theo yêu cầu)
                 } else {
                     numbers.forEach { num ->
                         list.add(Contact(name = name, number = num, photoUri = photo, starred = starred))
@@ -130,11 +128,9 @@ object ContactsRepository {
                 }
             }
         }
-        // DISPLAY_NAME ASC (SQL) xếp ký tự/số TRƯỚC chữ cái theo bảng mã Unicode, nên các liên
-        // hệ thuộc nhóm "#" (tên bắt đầu bằng số/ký hiệu) bị đẩy lên ĐẦU danh sách - không khớp
-        // cột chỉ mục A-Z bên phải (đã xếp "#" ở CUỐI). Đẩy nhóm "#" xuống cuối, dùng sortedBy
-        // (stable) nên thứ tự A-Z trong mỗi nhóm vẫn giữ nguyên.
-        return list.sortedBy { if (firstLetterKey(it.name) == "#") 1 else 0 }
+        // Deduplicate: tên + số y chang → chỉ giữ 1 bản (xóa hết trùng lặp)
+        val deduped = list.distinctBy { it.name.trim() to it.number.trim() }
+        return deduped.sortedBy { if (firstLetterKey(it.name) == "#") 1 else 0 }
     }
 
     /** Gọi khi biết chắc danh bạ hệ thống vừa đổi (thêm/sửa/xoá số) để lần đọc kế tiếp
