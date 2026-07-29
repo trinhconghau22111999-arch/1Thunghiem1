@@ -1,29 +1,34 @@
 package com.h.simplecall.ui
 
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.provider.CallLog
-import android.provider.ContactsContract
 import android.telephony.SubscriptionManager
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
 import com.h.simplecall.MainActivity
 import com.h.simplecall.R
+import com.h.simplecall.call.CallHistoryManager
+import com.h.simplecall.data.CallLogEntry
+import com.h.simplecall.data.local.AppDatabase
+import com.h.simplecall.data.local.toCallLogEntry
 import com.h.simplecall.databinding.FragmentCallHistoryBinding
 import com.h.simplecall.databinding.ItemCallHistoryEntryBinding
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
 
+/**
+ * Màn "chi tiết số điện thoại", mở ra khi bấm icon "i" trên 1 dòng ở Gần đây. Xử lý CẢ 2
+ * trường hợp:
+ *  - Số ĐÃ có trong danh bạ (name khác rỗng): hiển thị như bình thường (avatar chữ cái đầu,
+ *    thanh icon sửa/thẻ liên hệ/thêm phía trên).
+ *  - Số LẠ chưa lưu (name rỗng): ẩn avatar chữ cái + 3 icon sửa/thẻ liên hệ/thêm phía trên,
+ *    ẩn dòng Zalo/Xem thêm, thay bằng avatar mặc định (icon người) + thẻ "Tạo liên hệ mới" /
+ *    "Thêm vào liên lạc hiện có".
+ * (Màn riêng cho khi bấm 1 liên hệ trong tab Danh bạ là ContactDetailFragment - KHÔNG dùng
+ * chung file này, để sửa màn này không ảnh hưởng màn kia.)
+ */
 class CallHistoryFragment : Fragment() {
 
     companion object {
@@ -37,7 +42,27 @@ class CallHistoryFragment : Fragment() {
 
     private var _b: FragmentCallHistoryBinding? = null
     private val b get() = _b!!
-    private var currentNumber = ""
+    private var currentEntries: List<CallLogEntry> = emptyList()
+    private var pendingNumberForPick: String = ""
+
+    private val pickContactLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.PickContact()
+    ) { contactUri ->
+        if (contactUri == null) return@registerForActivityResult
+        try {
+            startActivity(android.content.Intent(android.content.Intent.ACTION_EDIT).apply {
+                setDataAndType(contactUri, android.provider.ContactsContract.Contacts.CONTENT_ITEM_TYPE)
+                putExtra(android.provider.ContactsContract.Intents.Insert.PHONE, pendingNumberForPick)
+                putExtra("finishActivityOnSaveCompleted", true)
+            })
+        } catch (_: Exception) {
+            android.widget.Toast.makeText(requireContext(), "Không thể mở màn hình sửa liên hệ", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Room không cho phép query trên main thread -> luôn đọc/ghi DB lịch sử ở nền.
+    private val bgExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     override fun onCreateView(i: LayoutInflater, c: ViewGroup?, s: Bundle?): View {
         _b = FragmentCallHistoryBinding.inflate(i, c, false); return b.root
@@ -46,227 +71,262 @@ class CallHistoryFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        currentNumber = arguments?.getString("number") ?: ""
-        val name = arguments?.getString("name") ?: currentNumber
+        val number = arguments?.getString("number") ?: ""
+        val name   = arguments?.getString("name") ?: number
+        val display = name.ifBlank { number }
+        val isKnownContact = name.isNotBlank()
 
-        // Nút back
-        b.btnBack.setOnClickListener {
-            requireActivity().supportFragmentManager.popBackStack()
-            // KHÔNG cần tự hiện lại bottomNav ở đây: MainActivity đã có
-            // addOnBackStackChangedListener tự làm điều đó khi back stack rỗng.
-        }
+        // ── Header: avatar tròn (chữ cái đầu) + tên + số ──
+        b.tvAvatar.text = display.take(1).uppercase()
+        // Nếu không có tên liên hệ (chỉ là 1 số lạ) thì số lớn phía trên PHẢI cách nhóm 3-3-2-2
+        // giống số trong thẻ phía dưới, ví dụ "090 130 08 36" - đúng ảnh mẫu người dùng gửi.
+        b.tvTitle.text = if (name.isBlank()) formatNumberGrouped(number) else display
 
-        // Tên / số
-        b.tvTitle.text = if (name.isNotEmpty() && name != currentNumber) name
-                         else formatNumber(currentNumber)
-
-        // Avatar
-        val initial = name.firstOrNull { it.isLetter() }?.uppercaseChar()
-        if (initial != null) {
-            b.tvAvatar.text = initial.toString()
+        // ── Số LẠ chưa lưu danh bạ: ẩn avatar chữ cái + 3 icon sửa/thẻ liên hệ/thêm phía trên,
+        // ẩn Zalo/Xem thêm, đổi loại số thành "Điện thoại", hiện thẻ Tạo/Thêm liên hệ ──
+        if (isKnownContact) {
             b.tvAvatar.visibility = View.VISIBLE
             b.ivDefaultAvatar.visibility = View.GONE
+            b.btnEdit.visibility = View.VISIBLE
+            b.btnContactCard.visibility = View.VISIBLE
+            b.btnMore.visibility = View.VISIBLE
+            b.divBeforeZalo.visibility = View.VISIBLE
+            b.rowZalo.visibility = View.VISIBLE
+            b.rowSeeMore.visibility = View.VISIBLE
+            b.cardAddContact.visibility = View.GONE
         } else {
             b.tvAvatar.visibility = View.GONE
             b.ivDefaultAvatar.visibility = View.VISIBLE
-        }
-
-        // SIM mặc định
-        val defaultSimSlot = getDefaultSimSlot()
-        b.tvSimBadge.text = (defaultSimSlot + 1).toString()
-        b.tvSubtitle.text = getString(R.string.default_sim_call, defaultSimSlot + 1)
-        b.rowSimDefault.setOnClickListener {
-            // Settings.ACTION_CALL_SETTINGS KHÔNG PHẢI hằng số có thật trong SDK công khai của
-            // Android (gây lỗi biên dịch "Unresolved reference"). Màn hình đúng để đổi SIM mặc
-            // định cho cuộc gọi là TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS (API 23+, public).
-            try { startActivity(Intent(android.telecom.TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS)) }
-            catch (_: Exception) {
-                Toast.makeText(requireContext(), "Máy không hỗ trợ mở màn hình này", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        // Nút gọi
-        b.btnCallRow.setOnClickListener { (activity as? MainActivity)?.placeCall(currentNumber) }
-        b.tvCallSimNum.text = (defaultSimSlot + 1).toString()
-
-        // Nút nhắn tin
-        b.btnMessageRow.setOnClickListener {
-            try { startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$currentNumber"))) }
-            catch (_: Exception) { Toast.makeText(requireContext(), "Không tìm thấy ứng dụng nhắn tin", Toast.LENGTH_SHORT).show() }
-        }
-
-        // Nút video
-        b.btnVideoRow.setOnClickListener {
-            Toast.makeText(requireContext(), getString(R.string.video_call_unsupported), Toast.LENGTH_SHORT).show()
-        }
-
-        // Nút sửa
-        b.btnEdit.setOnClickListener { openEditContact(currentNumber) }
-
-        // Tạo liên hệ mới
-        b.rowCreateContact.setOnClickListener {
-            try {
-                startActivity(Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)
-                    .putExtra(ContactsContract.Intents.Insert.PHONE, currentNumber))
-            } catch (_: Exception) {}
-        }
-
-        // Thêm vào liên hệ có sẵn
-        b.rowAddExisting.setOnClickListener {
-            try {
-                startActivity(Intent(Intent.ACTION_INSERT_OR_EDIT)
-                    .setType(ContactsContract.Contacts.CONTENT_ITEM_TYPE)
-                    .putExtra(ContactsContract.Intents.Insert.PHONE, currentNumber))
-            } catch (_: Exception) {}
-        }
-
-        // Xóa lịch sử
-        b.btnClearLog.setOnClickListener {
-            viewLifecycleOwner.lifecycleScope.launch {
-                withContext(Dispatchers.IO) {
-                    try {
-                        requireContext().contentResolver.delete(
-                            CallLog.Calls.CONTENT_URI,
-                            "${CallLog.Calls.NUMBER} = ?",
-                            arrayOf(currentNumber)
-                        )
-                    } catch (_: Exception) {}
+            b.btnEdit.visibility = View.GONE
+            b.btnContactCard.visibility = View.GONE
+            b.btnMore.visibility = View.GONE
+            b.divBeforeZalo.visibility = View.GONE
+            b.rowZalo.visibility = View.GONE
+            b.rowSeeMore.visibility = View.GONE
+            b.tvNumberType.text = "Điện thoại"
+            b.cardAddContact.visibility = View.VISIBLE
+            pendingNumberForPick = number
+            b.rowCreateContact.setOnClickListener {
+                try {
+                    startActivity(android.content.Intent(android.content.Intent.ACTION_INSERT, android.provider.ContactsContract.Contacts.CONTENT_URI)
+                        .putExtra(android.provider.ContactsContract.Intents.Insert.PHONE, number))
+                } catch (_: Exception) {
+                    android.widget.Toast.makeText(requireContext(), "Không tìm thấy ứng dụng để tạo liên hệ", android.widget.Toast.LENGTH_SHORT).show()
                 }
-                loadHistory(currentNumber)
+            }
+            b.rowAddExisting.setOnClickListener {
+                try { pickContactLauncher.launch(null) }
+                catch (_: Exception) {
+                    android.widget.Toast.makeText(requireContext(), "Không thể mở danh bạ", android.widget.Toast.LENGTH_SHORT).show()
+                }
             }
         }
+        // Đọc SIM mặc định cho cuộc gọi từ hệ thống
+        val defaultSimSlot: Int = try {
+            if (android.content.pm.PackageManager.PERMISSION_GRANTED ==
+                androidx.core.content.ContextCompat.checkSelfPermission(
+                    requireContext(), android.Manifest.permission.READ_PHONE_STATE)) {
+                val sm = requireContext().getSystemService(SubscriptionManager::class.java)
+                val defaultSubId = SubscriptionManager.getDefaultVoiceSubscriptionId()
+                val info = sm?.getActiveSubscriptionInfo(defaultSubId)
+                (info?.simSlotIndex ?: 0) + 1
+            } else 1
+        } catch (_: Exception) { 1 }
 
-        // Ẩn card tạo liên hệ nếu đã có trong danh bạ
-        val isInContacts = isNumberInContacts(currentNumber)
-        b.cardAddContact.visibility = if (isInContacts) View.GONE else View.VISIBLE
+        b.tvSubtitle.text = getString(R.string.default_sim_call, defaultSimSlot)
+        b.tvSimBadge.text = defaultSimSlot.toString()
+        // Số SIM trên icon gọi
+        b.tvCallSimNum.text = defaultSimSlot.toString()
 
-        // Load lịch sử
-        viewLifecycleOwner.lifecycleScope.launch { loadHistory(currentNumber) }
+        b.tvNumber.text = formatNumberGrouped(number)
+        val digitsOnly = number.filter { it.isDigit() }
+        val nationalNumber = if (digitsOnly.startsWith("0")) digitsOnly.drop(1) else digitsOnly
+        b.tvZalo.text = getString(R.string.zalo_call_with_number, nationalNumber)
+
+        // ── Nút back / edit / thẻ liên hệ / thêm ──
+        b.btnBack.setOnClickListener {
+            requireActivity().onBackPressedDispatcher.onBackPressed()
+        }
+        b.btnEdit.setOnClickListener { /* TODO: mở màn sửa liên hệ khi có */ }
+        b.btnContactCard.setOnClickListener { /* TODO: mở thẻ liên hệ đầy đủ khi có */ }
+        b.btnMore.setOnClickListener { /* TODO: menu 3 chấm (thêm vào danh bạ, chặn, v.v.) */ }
+
+        // ── Hàng hành động trên thẻ số: gọi / nhắn tin / video ──
+        b.btnCallRow.setOnClickListener { (activity as? MainActivity)?.placeCall(number) }
+        b.btnMessageRow.setOnClickListener { openSms(number) }
+        b.btnVideoRow.setOnClickListener { (activity as? MainActivity)?.placeCall(number) }
+        b.rowZalo.setOnClickListener { /* TODO: mở Zalo nếu app cài trên máy */ }
+        b.rowSeeMore.setOnClickListener { /* TODO: mở rộng thêm thông tin liên hệ */ }
+        b.rowMeet.setOnClickListener { /* TODO: tích hợp Meet khi có */ }
+        b.rowCallSummary.setOnClickListener { /* TODO: tóm tắt cuộc gọi (AI) khi có */ }
+        b.rowCallRecording.setOnClickListener { /* TODO: bản ghi âm cuộc gọi khi có */ }
+
+        b.btnClearLog.setOnClickListener { clearHistory(number) }
+        loadHistoryAsync(number)
     }
 
-    private suspend fun loadHistory(number: String) {
-        val entries = withContext(Dispatchers.IO) {
-            val list = mutableListOf<Triple<Int, Long, Long>>() // type, date, duration
-            if (ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.READ_CALL_LOG)
-                != android.content.pm.PackageManager.PERMISSION_GRANTED) return@withContext list
-            try {
-                val cur = requireContext().contentResolver.query(
-                    CallLog.Calls.CONTENT_URI,
-                    arrayOf(CallLog.Calls.TYPE, CallLog.Calls.DATE, CallLog.Calls.DURATION),
-                    "${CallLog.Calls.NUMBER} = ?",
-                    arrayOf(number),
-                    "${CallLog.Calls.DATE} DESC"
+    private fun loadHistoryAsync(number: String) {
+        val appContext = requireContext().applicationContext
+        bgExecutor.execute {
+            val entries = loadHistory(appContext, number)
+            mainHandler.post {
+                if (_b == null) return@post // fragment đã bị huỷ trong lúc chờ
+                currentEntries = entries
+                renderEntries(entries)
+            }
+        }
+    }
+
+    private fun openSms(number: String) {
+        val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO)
+        intent.data = android.net.Uri.parse("smsto:$number")
+        runCatching { startActivity(intent) }
+    }
+
+    /** Dựng danh sách "Nhật ký cuộc gọi" bằng tay (không RecyclerView) vì đã nằm trong 1
+     *  ScrollView chung của toàn màn hình - tránh xung đột cuộn lồng nhau. */
+    private fun renderEntries(entries: List<CallLogEntry>) {
+        val container = b.llHistoryEntries
+        container.removeAllViews()
+        val inflater = LayoutInflater.from(requireContext())
+
+        entries.forEachIndexed { index, item ->
+            val rowBinding = ItemCallHistoryEntryBinding.inflate(inflater, container, false)
+            bindEntry(rowBinding, item)
+            container.addView(rowBinding.root)
+
+            if (index != entries.lastIndex) {
+                val divider = View(requireContext())
+                val dividerHeightPx = (1 * resources.displayMetrics.density).toInt().coerceAtLeast(1)
+                divider.layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, dividerHeightPx
                 )
-                cur?.use {
-                    val iType = it.getColumnIndex(CallLog.Calls.TYPE)
-                    val iDate = it.getColumnIndex(CallLog.Calls.DATE)
-                    val iDur  = it.getColumnIndex(CallLog.Calls.DURATION)
-                    while (it.moveToNext()) {
-                        list.add(Triple(it.getInt(iType), it.getLong(iDate), it.getLong(iDur)))
-                    }
-                }
-            } catch (_: Exception) {}
-            list
-        }
-        if (_b == null) return
-
-        b.llHistoryEntries.removeAllViews()
-        entries.forEach { (type, date, duration) ->
-            val vb = ItemCallHistoryEntryBinding.inflate(layoutInflater, b.llHistoryEntries, false)
-            val isMissed = type == CallLog.Calls.MISSED_TYPE
-
-            vb.tvEntryLabel.text = when (type) {
-                CallLog.Calls.OUTGOING_TYPE -> "Cuộc gọi đi"
-                CallLog.Calls.INCOMING_TYPE -> "Cuộc gọi đến"
-                CallLog.Calls.MISSED_TYPE   -> "Cuộc gọi nhỡ"
-                CallLog.Calls.BLOCKED_TYPE  -> "Cuộc gọi bị chặn"
-                else -> "Cuộc gọi"
+                divider.setBackgroundColor(resources.getColor(R.color.divider, requireContext().theme))
+                container.addView(divider)
             }
-            vb.tvEntryLabel.setTextColor(requireContext().getColor(
-                if (isMissed) R.color.missed_red else R.color.text_primary))
-
-            vb.ivEntryType.setImageResource(when (type) {
-                CallLog.Calls.MISSED_TYPE   -> R.drawable.ic_call_missed
-                CallLog.Calls.OUTGOING_TYPE -> R.drawable.ic_call_outgoing
-                else -> R.drawable.ic_call_incoming
-            })
-            if (isMissed) vb.ivEntryType.setColorFilter(requireContext().getColor(R.color.missed_red))
-            else vb.ivEntryType.clearColorFilter()
-
-            val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
-            val timeStr = timeFmt.format(Date(date))
-            vb.tvEntryStatus.text = when {
-                isMissed -> "$timeStr  (Nhỡ)"
-                duration <= 0 -> "$timeStr  Chưa kết nối"
-                else -> "$timeStr  (${formatDurationVi(duration)})"
-            }
-            vb.tvEntryStatus.setTextColor(requireContext().getColor(
-                if (isMissed) R.color.missed_red else R.color.text_secondary))
-
-            val today = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0)
-            }
-            val cal = Calendar.getInstance().apply { timeInMillis = date }
-            vb.tvEntryDate.text = if (cal.after(today))
-                SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(date))
-            else SimpleDateFormat("d/M", Locale.getDefault()).format(Date(date))
-
-            b.llHistoryEntries.addView(vb.root)
         }
     }
 
-    private fun openEditContact(number: String) {
-        try {
-            val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number))
-            val cur = requireContext().contentResolver.query(uri,
-                arrayOf(ContactsContract.PhoneLookup.LOOKUP_KEY, ContactsContract.PhoneLookup._ID),
-                null, null, null)
-            cur?.use {
-                if (it.moveToFirst()) {
-                    val contactUri = ContactsContract.Contacts.getLookupUri(it.getLong(1), it.getString(0))
-                    startActivity(Intent(Intent.ACTION_EDIT).setDataAndType(contactUri,
-                        ContactsContract.Contacts.CONTENT_ITEM_TYPE))
-                    return
-                }
+    private fun bindEntry(rb: ItemCallHistoryEntryBinding, item: CallLogEntry) {
+        val ctx = requireContext()
+        val isMissed = item.type == CallLog.Calls.MISSED_TYPE
+        val isOutgoing = item.type == CallLog.Calls.OUTGOING_TYPE
+
+        val (label, iconRes) = when {
+            isMissed -> getString(R.string.call_type_missed) to R.drawable.ic_call_missed
+            isOutgoing -> getString(R.string.call_type_outgoing) to R.drawable.ic_call_outgoing
+            else -> getString(R.string.call_type_incoming) to R.drawable.ic_call_incoming
+        }
+        rb.tvEntryLabel.text = label
+        rb.tvEntryLabel.setTextColor(
+            ctx.getColor(if (isMissed) R.color.missed_red else R.color.text_primary)
+        )
+        rb.ivEntryType.setImageResource(iconRes)
+
+        // Giờ:phút bắt đầu cuộc gọi
+        val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
+        val timeStr = timeFmt.format(Date(item.date))
+
+        // Format status theo hình mẫu
+        rb.tvEntryStatus.text = when {
+            isMissed -> {
+                // Nhỡ: đổ chuông = duration nếu > 0, không thì 0
+                val ring = item.duration
+                if (ring > 0) "$timeStr  (Đổ chuông trong ${ring}giây)"
+                else "$timeStr  (Đổ chuông trong 1 giây)"
             }
-            startActivity(Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)
-                .putExtra(ContactsContract.Intents.Insert.PHONE, number))
-        } catch (_: Exception) {}
+            item.duration <= 0 -> "$timeStr  Chưa được kết nối"
+            else -> "$timeStr  (${formatDurationVi(item.duration)})"
+        }
+
+        // Màu đỏ cho nhỡ
+        rb.tvEntryStatus.setTextColor(
+            requireContext().getColor(if (isMissed) R.color.missed_red else R.color.text_secondary)
+        )
+
+        val today = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }
+        val cal = Calendar.getInstance().apply { timeInMillis = item.date }
+        rb.tvEntryDate.text = if (cal.after(today))
+            SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(item.date))
+        else
+            SimpleDateFormat("d/M", Locale.getDefault()).format(Date(item.date))
+
+        rb.root.setOnClickListener { (activity as? MainActivity)?.placeCall(item.number) }
     }
 
-    private fun isNumberInContacts(number: String): Boolean {
-        return try {
-            val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number))
-            val cur = requireContext().contentResolver.query(uri,
-                arrayOf(ContactsContract.PhoneLookup._ID), null, null, null)
-            cur?.use { it.count > 0 } ?: false
-        } catch (_: Exception) { false }
+    /** Cách nhóm số điện thoại theo 3-3-2-2, ví dụ "0901300836" -> "090 130 08 36",
+     *  đúng định dạng hiển thị trong ảnh mẫu. Giữ dấu "+" đầu số (nếu có) đứng riêng,
+     *  không tính vào phần chia nhóm. Số dài hơn 10 chữ số thì phần dư được gộp vào nhóm cuối. */
+    private fun formatNumberGrouped(raw: String): String {
+        val hasPlus = raw.trimStart().startsWith("+")
+        val digits = raw.filter { it.isDigit() }
+        if (digits.isEmpty()) return raw
+        val groups = mutableListOf<String>()
+        var i = 0
+        for (size in intArrayOf(3, 3, 2, 2)) {
+            if (i >= digits.length) break
+            val end = (i + size).coerceAtMost(digits.length)
+            groups.add(digits.substring(i, end))
+            i = end
+        }
+        if (i < digits.length) groups.add(digits.substring(i))
+        return (if (hasPlus) "+" else "") + groups.joinToString(" ")
     }
 
-    private fun getDefaultSimSlot(): Int = try {
-        if (ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.READ_PHONE_STATE)
-            != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            0
-        } else {
-            val sm = requireContext().getSystemService(SubscriptionManager::class.java)
-            val subId = SubscriptionManager.getDefaultVoiceSubscriptionId()
-            sm?.getActiveSubscriptionInfo(subId)?.simSlotIndex ?: 0
-        }
-    } catch (_: Exception) { 0 }
-
-    private fun formatNumber(number: String): String {
-        val d = number.filter { it.isDigit() }
-        return when (d.length) {
-            10 -> "${d.take(3)} ${d.substring(3,6)} ${d.substring(6,8)} ${d.substring(8)}"
-            11 -> "${d.take(4)} ${d.substring(4,7)} ${d.substring(7,9)} ${d.substring(9)}"
-            else -> number
-        }
+    private fun formatDuration(seconds: Long): String {
+        val m = seconds / 60
+        val s = seconds % 60
+        return String.format(Locale.getDefault(), "%d:%02d", m, s)
     }
 
     private fun formatDurationVi(seconds: Long): String {
-        val m = seconds / 60; val s = seconds % 60
-        return when { m > 0 && s > 0 -> "${m}phút ${s}giây"; m > 0 -> "${m}phút"; else -> "${s}giây" }
+        val m = seconds / 60
+        val s = seconds % 60
+        return when {
+            m > 0 && s > 0 -> "${m}phút ${s}giây"
+            m > 0 -> "${m}phút"
+            else -> "${s}giây"
+        }
     }
 
-    override fun onDestroyView() { super.onDestroyView(); _b = null }
+    /** Xoá nhật ký cuộc gọi của riêng số này khỏi DB nội bộ của app (không đụng CallLog hệ
+     *  thống nữa). So khớp theo phần số (bỏ ký tự không phải chữ số) để bắt cả các biến thể
+     *  định dạng khác nhau của cùng 1 số, giống hành vi cũ. */
+    private fun clearHistory(number: String) {
+        val clean = number.filter { it.isDigit() }
+        val appContext = requireContext().applicationContext
+        bgExecutor.execute {
+            try {
+                AppDatabase.getInstance(appContext).callHistoryDao().deleteByNumber("%$clean%")
+            } catch (e: Exception) {
+                android.util.Log.e("CallHistoryFragment", "Xoá lịch sử theo số thất bại", e)
+            }
+        }
+        currentEntries = emptyList()
+        b.llHistoryEntries.removeAllViews()
+    }
+
+    /** Đọc lịch sử của riêng 1 số từ DB nội bộ - số đã lưu trong đó LUÔN LÀ số hiển thị trên
+     *  màn hình gọi tại thời điểm gọi (xem CallHistoryManager), không phải số CallLog hệ thống
+     *  tự ghi. PHẢI gọi ở nền (bgExecutor) vì Room chặn query trên main thread. */
+    private fun loadHistory(ctx: android.content.Context, number: String): List<CallLogEntry> {
+        CallHistoryManager.awaitReady() // đảm bảo di trú lịch sử cũ (nếu có) đã chạy xong
+        val clean = number.filter { it.isDigit() }
+        return try {
+            AppDatabase.getInstance(ctx).callHistoryDao()
+                .getByNumber("%$clean%")
+                .map { it.toCallLogEntry() }
+        } catch (e: Exception) {
+            android.util.Log.e("CallHistoryFragment", "Đọc lịch sử theo số thất bại", e)
+            emptyList()
+        }
+    }
+
+    override fun onDestroyView() {
+        bgExecutor.shutdownNow()
+        super.onDestroyView(); _b = null
+    }
 }
