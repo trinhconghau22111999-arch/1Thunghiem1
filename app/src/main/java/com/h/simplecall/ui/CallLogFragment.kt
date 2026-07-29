@@ -33,6 +33,13 @@ import kotlinx.coroutines.withContext
 
 class CallLogFragment : Fragment() {
 
+    companion object {
+        /** Cache toàn bộ lịch sử cuộc gọi trong memory — chỉ load lại khi có cuộc gọi mới */
+        var cachedEntries: List<CallLogEntry> = emptyList()
+        /** Gọi hàm này từ InCallService/sau cuộc gọi để buộc reload lần sau */
+        fun invalidateCache() { cachedEntries = emptyList() }
+    }
+
     private var _b: FragmentCallLogBinding? = null
     private val b get() = _b!!
     private var allEntries: List<CallLogEntry> = emptyList()
@@ -42,7 +49,10 @@ class CallLogFragment : Fragment() {
 
     // Observer để tự reload khi hệ thống ghi thêm cuộc gọi mới vào CallLog
     private val callLogObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
-        override fun onChange(selfChange: Boolean) { loadFromSystem() }
+        override fun onChange(selfChange: Boolean) {
+            invalidateCache()  // Có cuộc gọi mới → xóa cache, buộc load lại
+            loadFromSystem()
+        }
     }
 
     override fun onCreateView(i: LayoutInflater, c: ViewGroup?, s: Bundle?): View {
@@ -144,25 +154,75 @@ class CallLogFragment : Fragment() {
      *  khớp 100% với ứng dụng điện thoại gốc vì cùng nguồn dữ liệu. */
     private fun loadFromSystem() {
         val ctx = context?.applicationContext ?: return
-        viewLifecycleOwner.lifecycleScope.launch {
-            val entries = withContext(Dispatchers.IO) { querySystemCallLog(ctx) }
-            if (_b == null) return@launch
-            allEntries = entries
+
+        // Nếu đã có cache → hiện ngay, không load lại (chỉ load khi cache rỗng)
+        if (cachedEntries.isNotEmpty()) {
+            allEntries = cachedEntries
             renderList()
+            return
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            // Stream dần từng batch 50 dòng lên UI trong lúc đọc
+            querySystemCallLogProgressive(ctx) { batch ->
+                if (_b == null) return@querySystemCallLogProgressive
+                allEntries = batch
+                renderList()
+            }
+            // Lưu vào cache sau khi đọc xong toàn bộ
+            cachedEntries = allEntries
         }
     }
 
-    private fun querySystemCallLog(ctx: Context): List<CallLogEntry> {
+    /** Đọc lịch sử và emit lên UI sau mỗi 50 dòng để hiện dần từ trên xuống */
+    private suspend fun querySystemCallLogProgressive(
+        ctx: Context,
+        onBatch: suspend (List<CallLogEntry>) -> Unit
+    ) = withContext(Dispatchers.IO) {
         if (ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.READ_CALL_LOG)
-            != android.content.pm.PackageManager.PERMISSION_GRANTED) return emptyList()
+            != android.content.pm.PackageManager.PERMISSION_GRANTED) return@withContext
         val entries = mutableListOf<CallLogEntry>()
         val projection = arrayOf(
-            CallLog.Calls.NUMBER,
-            CallLog.Calls.CACHED_NAME,
-            CallLog.Calls.TYPE,
-            CallLog.Calls.DATE,
-            CallLog.Calls.DURATION,
-            CallLog.Calls.PHONE_ACCOUNT_ID
+            CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME, CallLog.Calls.TYPE,
+            CallLog.Calls.DATE, CallLog.Calls.DURATION, CallLog.Calls.PHONE_ACCOUNT_ID
+        )
+        ctx.contentResolver.query(
+            CallLog.Calls.CONTENT_URI, projection, null, null, "${CallLog.Calls.DATE} DESC"
+        )?.use { cursor ->
+            val iNum = cursor.getColumnIndex(CallLog.Calls.NUMBER)
+            val iName = cursor.getColumnIndex(CallLog.Calls.CACHED_NAME)
+            val iType = cursor.getColumnIndex(CallLog.Calls.TYPE)
+            val iDate = cursor.getColumnIndex(CallLog.Calls.DATE)
+            val iDuration = cursor.getColumnIndex(CallLog.Calls.DURATION)
+            val iSim = cursor.getColumnIndex(CallLog.Calls.PHONE_ACCOUNT_ID)
+            while (cursor.moveToNext()) {
+                val number = cursor.getString(iNum) ?: continue
+                var name = cursor.getString(iName) ?: ""
+                if (name.isEmpty()) {
+                    name = com.h.simplecall.data.ContactsRepository.lookupNameByNumber(ctx, number) ?: ""
+                }
+                val type = cursor.getInt(iType)
+                val date = cursor.getLong(iDate)
+                val duration = cursor.getLong(iDuration)
+                val simId = cursor.getString(iSim)
+                val simSlot = when {
+                    simId.isNullOrEmpty() -> null
+                    simId.contains("1") -> 0
+                    simId.contains("2") -> 1
+                    else -> null
+                }
+                entries.add(CallLogEntry(name = name, number = number, type = type,
+                    date = date, duration = duration, simSlot = simSlot))
+                // Emit batch mỗi 50 dòng để hiện dần lên UI
+                if (entries.size % 50 == 0) {
+                    val snapshot = entries.toList()
+                    withContext(Dispatchers.Main) { onBatch(snapshot) }
+                }
+            }
+        }
+        // Emit phần còn lại
+        withContext(Dispatchers.Main) { onBatch(entries.toList()) }
+    }
         )
         ctx.contentResolver.query(
             CallLog.Calls.CONTENT_URI,
