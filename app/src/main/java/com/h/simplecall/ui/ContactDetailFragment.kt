@@ -57,7 +57,11 @@ class ContactDetailFragment : Fragment() {
         b.tvAvatar.text = display.take(1).uppercase()
         // Nếu không có tên liên hệ (chỉ là 1 số lạ) thì số lớn phía trên PHẢI cách nhóm 3-3-2-2
         // giống số trong thẻ phía dưới, ví dụ "090 130 08 36" - đúng ảnh mẫu người dùng gửi.
-        b.tvTitle.text = if (name.isBlank()) formatNumberGrouped(number) else display
+        b.tvTitle.text = when {
+            name.isNotBlank() -> display
+            number.isNotBlank() -> formatNumberGrouped(number)
+            else -> getString(R.string.hidden_number)
+        }
         // Đọc SIM mặc định cho cuộc gọi từ hệ thống
         val defaultSimSlot: Int = try {
             if (android.content.pm.PackageManager.PERMISSION_GRANTED ==

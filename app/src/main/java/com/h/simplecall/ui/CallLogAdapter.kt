@@ -51,7 +51,10 @@ class CallLogAdapter(
     override fun onBindViewHolder(h: VH, pos: Int) {
         val item = items[pos]
         val ctx = h.itemView.context
-        val display = item.name.ifEmpty { item.number }
+        // Android cho phép 1 dòng CallLog có NUMBER rỗng (số ẩn/riêng tư, cuộc gọi VoIP/RCS
+        // không lộ số...) - nếu CẢ tên lẫn số đều rỗng thì hiện rõ "Số bị ẩn" thay vì để trống
+        // trơn không đọc được gì trong danh sách.
+        val display = item.name.ifBlank { item.number.ifBlank { ctx.getString(R.string.hidden_number) } }
         val isBlocked = BlockedNumbersManager.isBlocked(item.number)
         val isMissed = item.type == CallLog.Calls.MISSED_TYPE
 

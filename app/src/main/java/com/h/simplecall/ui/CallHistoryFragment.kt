@@ -59,7 +59,11 @@ class CallHistoryFragment : Fragment() {
 
         // ── Header: avatar tròn (chữ cái đầu) + tên + số ──
         b.tvAvatar.text = display.take(1).uppercase()
-        b.tvTitle.text = if (name.isBlank()) formatNumberGrouped(number) else display
+        b.tvTitle.text = when {
+            name.isNotBlank() -> display
+            number.isNotBlank() -> formatNumberGrouped(number)
+            else -> getString(R.string.hidden_number)
+        }
 
         // Đọc SIM mặc định cho cuộc gọi từ hệ thống
         val defaultSimSlot: Int = try {
