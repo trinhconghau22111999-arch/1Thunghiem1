@@ -1,7 +1,5 @@
 package com.h.simplecall.ui
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -26,13 +24,6 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
 
-data class CallEntry(
-    val type: Int,
-    val date: Long,
-    val duration: Long,
-    val simSlot: Int
-)
-
 class CallHistoryFragment : Fragment() {
 
     companion object {
@@ -46,6 +37,7 @@ class CallHistoryFragment : Fragment() {
 
     private var _b: FragmentCallHistoryBinding? = null
     private val b get() = _b!!
+    private var currentNumber = ""
 
     override fun onCreateView(i: LayoutInflater, c: ViewGroup?, s: Bundle?): View {
         _b = FragmentCallHistoryBinding.inflate(i, c, false); return b.root
@@ -54,201 +46,20 @@ class CallHistoryFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val number = arguments?.getString("number") ?: ""
-        val name   = arguments?.getString("name") ?: number
+        currentNumber = arguments?.getString("number") ?: ""
+        val name = arguments?.getString("name") ?: currentNumber
 
+        // Nút back
         b.btnBack.setOnClickListener {
             requireActivity().supportFragmentManager.popBackStack()
             (activity as? MainActivity)?.showNav()
         }
 
-        // Hiện tên / số
-        if (name.isNotEmpty() && name != number) {
-            b.tvTitle.text = name
-        } else {
-            b.tvTitle.text = formatNumber(number)
-        }
-
-        // SIM mặc định
-        val defaultSimSlot = getDefaultSimSlot()
-        b.tvSimBadge.text = (defaultSimSlot + 1).toString()
-        b.tvSubtitle.text = getString(R.string.default_sim_call, defaultSimSlot + 1)
-        b.rowSimDefault.setOnClickListener {
-            try {
-                startActivity(Intent(android.provider.Settings.ACTION_CALL_SETTINGS))
-            } catch (_: Exception) {}
-        }
+        // Tên / số
+        b.tvTitle.text = if (name.isNotEmpty() && name != currentNumber) name
+                         else formatNumber(currentNumber)
 
         // Avatar
-        setupAvatar(name)
-
-        // Nút gọi
-        b.btnCallRow.setOnClickListener { (activity as? MainActivity)?.placeCall(number) }
-        b.tvCallSimNum.text = (defaultSimSlot + 1).toString()
-
-        // Nút nhắn tin
-        b.btnSmsRow.setOnClickListener {
-            try { startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$number"))) }
-            catch (_: Exception) { Toast.makeText(requireContext(), "Không tìm thấy ứng dụng nhắn tin", Toast.LENGTH_SHORT).show() }
-        }
-
-        // Nút video
-        b.btnVideoRow.setOnClickListener {
-            Toast.makeText(requireContext(), getString(R.string.video_call_unsupported), Toast.LENGTH_SHORT).show()
-        }
-
-        // Nút sửa
-        b.btnEdit.setOnClickListener {
-            try {
-                val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number))
-                val cur = requireContext().contentResolver.query(uri,
-                    arrayOf(ContactsContract.PhoneLookup.LOOKUP_KEY, ContactsContract.PhoneLookup._ID), null, null, null)
-                cur?.use {
-                    if (it.moveToFirst()) {
-                        val lookupKey = it.getString(0)
-                        val contactUri = ContactsContract.Contacts.getLookupUri(it.getLong(1), lookupKey)
-                        startActivity(Intent(Intent.ACTION_EDIT).setDataAndType(contactUri, ContactsContract.Contacts.CONTENT_ITEM_TYPE))
-                        return@setOnClickListener
-                    }
-                }
-                // Chưa có trong danh bạ → tạo mới
-                startActivity(Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)
-                    .putExtra(ContactsContract.Intents.Insert.PHONE, number))
-            } catch (_: Exception) {}
-        }
-
-        // Nút thêm vào danh bạ
-        b.btnAddContact?.setOnClickListener {
-            try {
-                startActivity(Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)
-                    .putExtra(ContactsContract.Intents.Insert.PHONE, number))
-            } catch (_: Exception) {}
-        }
-
-        // Xóa lịch sử
-        b.btnDeleteLog.setOnClickListener {
-            viewLifecycleOwner.lifecycleScope.launch {
-                withContext(Dispatchers.IO) {
-                    try {
-                        requireContext().contentResolver.delete(
-                            CallLog.Calls.CONTENT_URI,
-                            "${CallLog.Calls.NUMBER} = ?",
-                            arrayOf(number)
-                        )
-                    } catch (_: Exception) {}
-                }
-                loadHistory(number)
-            }
-        }
-
-        // Load lịch sử từ CallLog hệ thống
-        viewLifecycleOwner.lifecycleScope.launch { loadHistory(number) }
-    }
-
-    private suspend fun loadHistory(number: String) {
-        val entries = withContext(Dispatchers.IO) {
-            val list = mutableListOf<CallEntry>()
-            if (ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.READ_CALL_LOG)
-                != android.content.pm.PackageManager.PERMISSION_GRANTED) return@withContext list
-            try {
-                val cur = requireContext().contentResolver.query(
-                    CallLog.Calls.CONTENT_URI,
-                    arrayOf(CallLog.Calls.TYPE, CallLog.Calls.DATE, CallLog.Calls.DURATION, CallLog.Calls.PHONE_ACCOUNT_ID),
-                    "${CallLog.Calls.NUMBER} = ? OR ${CallLog.Calls.NUMBER} LIKE ?",
-                    arrayOf(number, "%${number.takeLast(9)}"),
-                    "${CallLog.Calls.DATE} DESC"
-                )
-                cur?.use {
-                    val iType  = it.getColumnIndex(CallLog.Calls.TYPE)
-                    val iDate  = it.getColumnIndex(CallLog.Calls.DATE)
-                    val iDur   = it.getColumnIndex(CallLog.Calls.DURATION)
-                    val iAcct  = it.getColumnIndex(CallLog.Calls.PHONE_ACCOUNT_ID)
-                    while (it.moveToNext()) {
-                        val acct = if (iAcct >= 0) it.getString(iAcct) ?: "" else ""
-                        val simSlot = try {
-                            val subId = acct.toIntOrNull()
-                            if (subId != null) {
-                                val sm = requireContext().getSystemService(SubscriptionManager::class.java)
-                                sm?.getActiveSubscriptionInfo(subId)?.simSlotIndex ?: 0
-                            } else 0
-                        } catch (_: Exception) { 0 }
-                        list.add(CallEntry(
-                            type     = it.getInt(iType),
-                            date     = it.getLong(iDate),
-                            duration = it.getLong(iDur),
-                            simSlot  = simSlot
-                        ))
-                    }
-                }
-            } catch (_: Exception) {}
-            list
-        }
-        if (_b == null) return
-        renderHistory(entries)
-    }
-
-    private fun renderHistory(entries: List<CallEntry>) {
-        b.tvCallLogLabel.visibility = if (entries.isEmpty()) View.GONE else View.VISIBLE
-        b.recyclerViewEntries.layoutManager = LinearLayoutManager(requireContext())
-        b.recyclerViewEntries.adapter = object : androidx.recyclerview.widget.RecyclerView.Adapter<androidx.recyclerview.widget.RecyclerView.ViewHolder>() {
-            override fun getItemCount() = entries.size
-            override fun onCreateViewHolder(p: ViewGroup, t: Int): androidx.recyclerview.widget.RecyclerView.ViewHolder {
-                val vb = ItemCallHistoryEntryBinding.inflate(LayoutInflater.from(p.context), p, false)
-                return object : androidx.recyclerview.widget.RecyclerView.ViewHolder(vb.root) {}
-            }
-            override fun onBindViewHolder(h: androidx.recyclerview.widget.RecyclerView.ViewHolder, pos: Int) {
-                val entry = entries[pos]
-                val vb = ItemCallHistoryEntryBinding.bind(h.itemView)
-                val isMissed = entry.type == CallLog.Calls.MISSED_TYPE
-
-                // Loại cuộc gọi
-                vb.tvEntryType.text = when (entry.type) {
-                    CallLog.Calls.OUTGOING_TYPE -> "Cuộc gọi đi"
-                    CallLog.Calls.INCOMING_TYPE -> "Cuộc gọi đến"
-                    CallLog.Calls.MISSED_TYPE   -> "Cuộc gọi nhỡ"
-                    CallLog.Calls.BLOCKED_TYPE  -> "Cuộc gọi bị chặn"
-                    else -> "Cuộc gọi"
-                }
-                vb.tvEntryType.setTextColor(requireContext().getColor(
-                    if (isMissed) R.color.missed_red else R.color.text_primary))
-
-                // Icon
-                when (entry.type) {
-                    CallLog.Calls.MISSED_TYPE  -> { vb.ivEntryIcon.setImageResource(R.drawable.ic_call_missed); vb.ivEntryIcon.setColorFilter(requireContext().getColor(R.color.missed_red)) }
-                    CallLog.Calls.OUTGOING_TYPE -> { vb.ivEntryIcon.setImageResource(R.drawable.ic_call_outgoing); vb.ivEntryIcon.clearColorFilter() }
-                    else -> { vb.ivEntryIcon.setImageResource(R.drawable.ic_call_incoming); vb.ivEntryIcon.clearColorFilter() }
-                }
-
-                // SIM badge
-                vb.tvEntrySimBadge?.text = (entry.simSlot + 1).toString()
-
-                // Status: giờ + trạng thái
-                val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
-                val timeStr = timeFmt.format(Date(entry.date))
-                vb.tvEntryStatus.text = when {
-                    isMissed -> {
-                        val ring = entry.duration
-                        if (ring > 0) "$timeStr  (Đổ chuông ${ring}giây)" else "$timeStr  (Nhỡ)"
-                    }
-                    entry.duration <= 0 -> "$timeStr  Chưa được kết nối"
-                    else -> "$timeStr  (${formatDurationVi(entry.duration)})"
-                }
-                vb.tvEntryStatus.setTextColor(requireContext().getColor(
-                    if (isMissed) R.color.missed_red else R.color.text_secondary))
-
-                // Ngày
-                val today = Calendar.getInstance().apply {
-                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0)
-                }
-                val cal = Calendar.getInstance().apply { timeInMillis = entry.date }
-                vb.tvEntryDate.text = if (cal.after(today))
-                    SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(entry.date))
-                else SimpleDateFormat("d/M", Locale.getDefault()).format(Date(entry.date))
-            }
-        }
-    }
-
-    private fun setupAvatar(name: String) {
         val initial = name.firstOrNull { it.isLetter() }?.uppercaseChar()
         if (initial != null) {
             b.tvAvatar.text = initial.toString()
@@ -258,20 +69,187 @@ class CallHistoryFragment : Fragment() {
             b.tvAvatar.visibility = View.GONE
             b.ivDefaultAvatar.visibility = View.VISIBLE
         }
+
+        // SIM mặc định
+        val defaultSimSlot = getDefaultSimSlot()
+        b.tvSimBadge.text = (defaultSimSlot + 1).toString()
+        b.tvSubtitle.text = getString(R.string.default_sim_call, defaultSimSlot + 1)
+        b.rowSimDefault.setOnClickListener {
+            try { startActivity(Intent(android.provider.Settings.ACTION_CALL_SETTINGS)) }
+            catch (_: Exception) {}
+        }
+
+        // Nút gọi
+        b.btnCallRow.setOnClickListener { (activity as? MainActivity)?.placeCall(currentNumber) }
+        b.tvCallSimNum.text = (defaultSimSlot + 1).toString()
+
+        // Nút nhắn tin
+        b.btnMessageRow.setOnClickListener {
+            try { startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$currentNumber"))) }
+            catch (_: Exception) { Toast.makeText(requireContext(), "Không tìm thấy ứng dụng nhắn tin", Toast.LENGTH_SHORT).show() }
+        }
+
+        // Nút video
+        b.btnVideoRow.setOnClickListener {
+            Toast.makeText(requireContext(), getString(R.string.video_call_unsupported), Toast.LENGTH_SHORT).show()
+        }
+
+        // Nút sửa
+        b.btnEdit.setOnClickListener { openEditContact(currentNumber) }
+
+        // Tạo liên hệ mới
+        b.rowCreateContact.setOnClickListener {
+            try {
+                startActivity(Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)
+                    .putExtra(ContactsContract.Intents.Insert.PHONE, currentNumber))
+            } catch (_: Exception) {}
+        }
+
+        // Thêm vào liên hệ có sẵn
+        b.rowAddExisting.setOnClickListener {
+            try {
+                startActivity(Intent(Intent.ACTION_INSERT_OR_EDIT)
+                    .setType(ContactsContract.Contacts.CONTENT_ITEM_TYPE)
+                    .putExtra(ContactsContract.Intents.Insert.PHONE, currentNumber))
+            } catch (_: Exception) {}
+        }
+
+        // Xóa lịch sử
+        b.btnClearLog.setOnClickListener {
+            viewLifecycleOwner.lifecycleScope.launch {
+                withContext(Dispatchers.IO) {
+                    try {
+                        requireContext().contentResolver.delete(
+                            CallLog.Calls.CONTENT_URI,
+                            "${CallLog.Calls.NUMBER} = ?",
+                            arrayOf(currentNumber)
+                        )
+                    } catch (_: Exception) {}
+                }
+                loadHistory(currentNumber)
+            }
+        }
+
+        // Ẩn card tạo liên hệ nếu đã có trong danh bạ
+        val isInContacts = isNumberInContacts(currentNumber)
+        b.cardAddContact.visibility = if (isInContacts) View.GONE else View.VISIBLE
+
+        // Load lịch sử
+        viewLifecycleOwner.lifecycleScope.launch { loadHistory(currentNumber) }
+    }
+
+    private suspend fun loadHistory(number: String) {
+        val entries = withContext(Dispatchers.IO) {
+            val list = mutableListOf<Triple<Int, Long, Long>>() // type, date, duration
+            if (ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.READ_CALL_LOG)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) return@withContext list
+            try {
+                val cur = requireContext().contentResolver.query(
+                    CallLog.Calls.CONTENT_URI,
+                    arrayOf(CallLog.Calls.TYPE, CallLog.Calls.DATE, CallLog.Calls.DURATION),
+                    "${CallLog.Calls.NUMBER} = ?",
+                    arrayOf(number),
+                    "${CallLog.Calls.DATE} DESC"
+                )
+                cur?.use {
+                    val iType = it.getColumnIndex(CallLog.Calls.TYPE)
+                    val iDate = it.getColumnIndex(CallLog.Calls.DATE)
+                    val iDur  = it.getColumnIndex(CallLog.Calls.DURATION)
+                    while (it.moveToNext()) {
+                        list.add(Triple(it.getInt(iType), it.getLong(iDate), it.getLong(iDur)))
+                    }
+                }
+            } catch (_: Exception) {}
+            list
+        }
+        if (_b == null) return
+
+        b.llHistoryEntries.removeAllViews()
+        entries.forEach { (type, date, duration) ->
+            val vb = ItemCallHistoryEntryBinding.inflate(layoutInflater, b.llHistoryEntries, false)
+            val isMissed = type == CallLog.Calls.MISSED_TYPE
+
+            vb.tvEntryLabel.text = when (type) {
+                CallLog.Calls.OUTGOING_TYPE -> "Cuộc gọi đi"
+                CallLog.Calls.INCOMING_TYPE -> "Cuộc gọi đến"
+                CallLog.Calls.MISSED_TYPE   -> "Cuộc gọi nhỡ"
+                CallLog.Calls.BLOCKED_TYPE  -> "Cuộc gọi bị chặn"
+                else -> "Cuộc gọi"
+            }
+            vb.tvEntryLabel.setTextColor(requireContext().getColor(
+                if (isMissed) R.color.missed_red else R.color.text_primary))
+
+            vb.ivEntryType.setImageResource(when (type) {
+                CallLog.Calls.MISSED_TYPE   -> R.drawable.ic_call_missed
+                CallLog.Calls.OUTGOING_TYPE -> R.drawable.ic_call_outgoing
+                else -> R.drawable.ic_call_incoming
+            })
+            if (isMissed) vb.ivEntryType.setColorFilter(requireContext().getColor(R.color.missed_red))
+            else vb.ivEntryType.clearColorFilter()
+
+            val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
+            val timeStr = timeFmt.format(Date(date))
+            vb.tvEntryStatus.text = when {
+                isMissed -> "$timeStr  (Nhỡ)"
+                duration <= 0 -> "$timeStr  Chưa kết nối"
+                else -> "$timeStr  (${formatDurationVi(duration)})"
+            }
+            vb.tvEntryStatus.setTextColor(requireContext().getColor(
+                if (isMissed) R.color.missed_red else R.color.text_secondary))
+
+            val today = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0)
+            }
+            val cal = Calendar.getInstance().apply { timeInMillis = date }
+            vb.tvEntryDate.text = if (cal.after(today))
+                SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(date))
+            else SimpleDateFormat("d/M", Locale.getDefault()).format(Date(date))
+
+            b.llHistoryEntries.addView(vb.root)
+        }
+    }
+
+    private fun openEditContact(number: String) {
+        try {
+            val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number))
+            val cur = requireContext().contentResolver.query(uri,
+                arrayOf(ContactsContract.PhoneLookup.LOOKUP_KEY, ContactsContract.PhoneLookup._ID),
+                null, null, null)
+            cur?.use {
+                if (it.moveToFirst()) {
+                    val contactUri = ContactsContract.Contacts.getLookupUri(it.getLong(1), it.getString(0))
+                    startActivity(Intent(Intent.ACTION_EDIT).setDataAndType(contactUri,
+                        ContactsContract.Contacts.CONTENT_ITEM_TYPE))
+                    return
+                }
+            }
+            startActivity(Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)
+                .putExtra(ContactsContract.Intents.Insert.PHONE, number))
+        } catch (_: Exception) {}
+    }
+
+    private fun isNumberInContacts(number: String): Boolean {
+        return try {
+            val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number))
+            val cur = requireContext().contentResolver.query(uri,
+                arrayOf(ContactsContract.PhoneLookup._ID), null, null, null)
+            cur?.use { it.count > 0 } ?: false
+        } catch (_: Exception) { false }
     }
 
     private fun getDefaultSimSlot(): Int = try {
         if (ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.READ_PHONE_STATE)
             != android.content.pm.PackageManager.PERMISSION_GRANTED) return 0
         val sm = requireContext().getSystemService(SubscriptionManager::class.java)
-        val defaultSubId = SubscriptionManager.getDefaultVoiceSubscriptionId()
-        sm?.getActiveSubscriptionInfo(defaultSubId)?.simSlotIndex ?: 0
+        val subId = SubscriptionManager.getDefaultVoiceSubscriptionId()
+        sm?.getActiveSubscriptionInfo(subId)?.simSlotIndex ?: 0
     } catch (_: Exception) { 0 }
 
     private fun formatNumber(number: String): String {
         val d = number.filter { it.isDigit() }
-        return when {
-            d.length == 10 -> "${d.take(3)} ${d.substring(3,6)} ${d.substring(6,8)} ${d.substring(8)}"
+        return when (d.length) {
+            10 -> "${d.take(3)} ${d.substring(3,6)} ${d.substring(6,8)} ${d.substring(8)}"
+            11 -> "${d.take(4)} ${d.substring(4,7)} ${d.substring(7,9)} ${d.substring(9)}"
             else -> number
         }
     }
