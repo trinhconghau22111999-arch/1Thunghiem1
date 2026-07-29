@@ -223,50 +223,6 @@ class CallLogFragment : Fragment() {
         // Emit phần còn lại
         withContext(Dispatchers.Main) { onBatch(entries.toList()) }
     }
-        )
-        ctx.contentResolver.query(
-            CallLog.Calls.CONTENT_URI,
-            projection,
-            null, null,
-            "${CallLog.Calls.DATE} DESC"
-        )?.use { cursor ->
-            val iNum      = cursor.getColumnIndex(CallLog.Calls.NUMBER)
-            val iName     = cursor.getColumnIndex(CallLog.Calls.CACHED_NAME)
-            val iType     = cursor.getColumnIndex(CallLog.Calls.TYPE)
-            val iDate     = cursor.getColumnIndex(CallLog.Calls.DATE)
-            val iDuration = cursor.getColumnIndex(CallLog.Calls.DURATION)
-            val iSim      = cursor.getColumnIndex(CallLog.Calls.PHONE_ACCOUNT_ID)
-            while (cursor.moveToNext()) {
-                val number   = cursor.getString(iNum) ?: continue
-                var name     = cursor.getString(iName) ?: ""
-                val type     = cursor.getInt(iType)
-                val date     = cursor.getLong(iDate)
-                val duration = cursor.getLong(iDuration)
-                val simId    = cursor.getString(iSim)
-                // CallLog không phải lúc nào cũng tự điền CACHED_NAME cho cuộc gọi ĐI tới số đã lưu
-                // (khác với cuộc gọi ĐẾN, luôn được hệ thống tự tra caller ID) → tự tra bù qua
-                // PhoneLookup để không bị hiện trơ số khi số đó đã có trong danh bạ.
-                if (name.isEmpty()) {
-                    name = com.h.simplecall.data.ContactsRepository.lookupNameByNumber(ctx, number) ?: ""
-                }
-                val simSlot  = when {
-                    simId.isNullOrEmpty() -> null
-                    simId.contains("1") -> 0
-                    simId.contains("2") -> 1
-                    else -> null
-                }
-                entries.add(CallLogEntry(
-                    name     = name,
-                    number   = number,
-                    type     = type,
-                    date     = date,
-                    duration = duration,
-                    simSlot  = simSlot
-                ))
-            }
-        }
-        return entries
-    }
 
     private fun selectTab(missed: Boolean) {
         showMissedOnly = missed
