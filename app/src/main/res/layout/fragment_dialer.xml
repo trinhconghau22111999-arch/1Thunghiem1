@@ -415,14 +415,16 @@
 
                 <LinearLayout
                     android:id="@+id/llCallDual"
-                    android:layout_width="wrap_content" android:layout_height="50dp"
+                    android:layout_width="158dp" android:layout_height="50dp"
                     android:layout_gravity="center"
                     android:orientation="horizontal"
                     android:visibility="gone">
 
+                    <!-- Nút SIM chính (mặc định gọi) sẽ được đặt weight=3 ở code (chiếm 60% diện tích) -->
                     <FrameLayout
                         android:id="@+id/btnCallSim1"
-                        android:layout_width="79dp" android:layout_height="match_parent"
+                        android:layout_width="0dp" android:layout_height="match_parent"
+                        android:layout_weight="1"
                         android:background="@drawable/bg_call_pill_left"
                         android:clickable="true" android:focusable="true">
                         <ImageView android:layout_width="20dp" android:layout_height="20dp"
@@ -433,9 +435,11 @@
                             android:textColor="@color/white" android:fontFamily="sans-serif-medium"/>
                     </FrameLayout>
 
+                    <!-- Nút SIM phụ sẽ được đặt weight=2 ở code (chiếm 40% diện tích) -->
                     <FrameLayout
                         android:id="@+id/btnCallSim2"
-                        android:layout_width="79dp" android:layout_height="match_parent"
+                        android:layout_width="0dp" android:layout_height="match_parent"
+                        android:layout_weight="1"
                         android:background="@drawable/bg_call_pill_right"
                         android:clickable="true" android:focusable="true">
                         <ImageView android:layout_width="20dp" android:layout_height="20dp"

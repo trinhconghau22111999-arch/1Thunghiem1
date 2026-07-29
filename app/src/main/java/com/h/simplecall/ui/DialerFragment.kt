@@ -27,6 +27,7 @@ import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.GridLayout
+import android.widget.LinearLayout
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -405,6 +406,15 @@ class DialerFragment : Fragment() {
         }
     }
 
+    // Trả về PhoneAccountHandle đang được đặt làm mặc định gọi đi (SIM chính), nếu người
+    // dùng đã chọn cố định trong Cài đặt hệ thống. Trả null nếu để "Hỏi mỗi lần" hoặc lỗi quyền.
+    private fun defaultOutgoingAccount(): PhoneAccountHandle? {
+        return try {
+            val tm = requireContext().getSystemService(TelecomManager::class.java) ?: return null
+            tm.getDefaultOutgoingPhoneAccount(android.telecom.PhoneAccount.SCHEME_TEL)
+        } catch (_: SecurityException) { null }
+    }
+
     private fun setupCallButtons() {
         val accounts = callCapableAccounts()
         if (accounts.size >= 2) {
@@ -412,6 +422,18 @@ class DialerFragment : Fragment() {
             b.llCallDual.visibility = View.VISIBLE
             b.btnCallSim1.setOnClickListener { callWith(accounts[0]) }
             b.btnCallSim2.setOnClickListener { callWith(accounts[1]) }
+
+            // SIM chính (mặc định gọi) chiếm 60% diện tích nút gọi, SIM còn lại chiếm 40%.
+            // Nếu không xác định được SIM mặc định (để "Hỏi mỗi lần"), giữ SIM 1 làm SIM chính.
+            val defaultHandle = defaultOutgoingAccount()
+            val sim1IsMain = defaultHandle == null || defaultHandle == accounts[0]
+
+            val lp1 = b.btnCallSim1.layoutParams as LinearLayout.LayoutParams
+            val lp2 = b.btnCallSim2.layoutParams as LinearLayout.LayoutParams
+            lp1.weight = if (sim1IsMain) 3f else 2f
+            lp2.weight = if (sim1IsMain) 2f else 3f
+            b.btnCallSim1.layoutParams = lp1
+            b.btnCallSim2.layoutParams = lp2
         } else {
             b.llCallDual.visibility = View.GONE
             b.btnCall.visibility = View.VISIBLE
