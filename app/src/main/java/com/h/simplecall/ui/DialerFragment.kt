@@ -648,11 +648,14 @@ class DialerFragment : Fragment() {
             CallLog.Calls.DURATION,
             CallLog.Calls.PHONE_ACCOUNT_ID
         )
+        // TRƯỚC ĐÂY: "... DATE DESC LIMIT 50" - chỉ đọc đúng 50 cuộc gọi gần nhất, cắt cụt lịch
+        // sử nếu máy có nhiều hơn 50 cuộc gọi. Bỏ LIMIT để đọc TOÀN BỘ lịch sử đang có trong
+        // CallLog hệ thống, khớp đúng với app điện thoại gốc (cùng nguồn dữ liệu).
         ctx.contentResolver.query(
             CallLog.Calls.CONTENT_URI,
             projection,
             null, null,
-            "${CallLog.Calls.DATE} DESC LIMIT 50"
+            "${CallLog.Calls.DATE} DESC"
         )?.use { cursor ->
             val iNum      = cursor.getColumnIndex(CallLog.Calls.NUMBER)
             val iName     = cursor.getColumnIndex(CallLog.Calls.CACHED_NAME)
@@ -662,11 +665,17 @@ class DialerFragment : Fragment() {
             val iSim      = cursor.getColumnIndex(CallLog.Calls.PHONE_ACCOUNT_ID)
             while (cursor.moveToNext()) {
                 val number   = cursor.getString(iNum) ?: continue
-                val name     = cursor.getString(iName) ?: ""
+                var name     = cursor.getString(iName) ?: ""
                 val type     = cursor.getInt(iType)
                 val date     = cursor.getLong(iDate)
                 val duration = cursor.getLong(iDuration)
                 val simId    = cursor.getString(iSim)
+                // CallLog không phải lúc nào cũng tự điền CACHED_NAME cho cuộc gọi ĐI tới số đã
+                // lưu (khác cuộc gọi ĐẾN, luôn được hệ thống tự tra caller ID) -> tự tra bù qua
+                // PhoneLookup để không hiện trơ số khi số đó đã có trong danh bạ.
+                if (name.isEmpty()) {
+                    name = com.h.simplecall.data.ContactsRepository.lookupNameByNumber(ctx, number) ?: ""
+                }
                 val simSlot  = when {
                     simId.isNullOrEmpty() -> null
                     simId.contains("1") -> 0
