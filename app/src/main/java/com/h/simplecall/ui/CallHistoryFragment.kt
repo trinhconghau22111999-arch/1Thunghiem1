@@ -14,7 +14,6 @@ import com.h.simplecall.R
 import com.h.simplecall.call.BlockedNumbersManager
 import com.h.simplecall.call.CallRecordingManager
 import com.h.simplecall.data.CallLogEntry
-import com.h.simplecall.data.ContactsRepository
 import com.h.simplecall.databinding.FragmentCallHistoryBinding
 import com.h.simplecall.databinding.ItemCallHistoryEntryBinding
 import java.text.SimpleDateFormat
@@ -136,11 +135,25 @@ class CallHistoryFragment : Fragment() {
         // ── Nút Sửa liên hệ ──
         b.btnEdit.setOnClickListener {
             val ctx = requireContext()
-            val uri = ContactsRepository.lookupContactUri(ctx, number)
+            // ContactsRepository không có lookupContactUri — tra thẳng qua PhoneLookup
+            val contactUri = runCatching {
+                val lookupUri = android.net.Uri.withAppendedPath(
+                    android.provider.ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                    android.net.Uri.encode(number))
+                ctx.contentResolver.query(lookupUri,
+                    arrayOf(android.provider.ContactsContract.PhoneLookup._ID,
+                            android.provider.ContactsContract.PhoneLookup.LOOKUP_KEY),
+                    null, null, null)?.use { cur ->
+                    if (cur.moveToFirst()) {
+                        val id = cur.getLong(0); val key = cur.getString(1)
+                        android.provider.ContactsContract.Contacts.getLookupUri(id, key)
+                    } else null
+                }
+            }.getOrNull()
             try {
-                if (uri != null) {
+                if (contactUri != null) {
                     startActivity(android.content.Intent(android.content.Intent.ACTION_EDIT).apply {
-                        setDataAndType(uri, ContactsContract.Contacts.CONTENT_ITEM_TYPE)
+                        setDataAndType(contactUri, ContactsContract.Contacts.CONTENT_ITEM_TYPE)
                     })
                 } else {
                     startActivity(android.content.Intent(android.content.Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI).apply {
@@ -240,7 +253,7 @@ class CallHistoryFragment : Fragment() {
         ctx.contentResolver.query(
             CallLog.Calls.CONTENT_URI,
             arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME, CallLog.Calls.TYPE,
-                CallLog.Calls.DATE, CallLog.Calls.DURATION, CallLog.Calls.PHONE_ACCOUNT_ID),
+                CallLog.Calls.DATE, CallLog.Calls.DURATION),
             "${CallLog.Calls.NUMBER} LIKE ?", arrayOf("%$clean"),
             "${CallLog.Calls.DATE} DESC"
         )?.use { cur ->
@@ -249,7 +262,6 @@ class CallHistoryFragment : Fragment() {
             val iType = cur.getColumnIndexOrThrow(CallLog.Calls.TYPE)
             val iDate = cur.getColumnIndexOrThrow(CallLog.Calls.DATE)
             val iDur  = cur.getColumnIndexOrThrow(CallLog.Calls.DURATION)
-            val iSim  = cur.getColumnIndexOrThrow(CallLog.Calls.PHONE_ACCOUNT_ID)
             while (cur.moveToNext()) {
                 entries += CallLogEntry(
                     number = cur.getString(iNum) ?: number,
@@ -257,7 +269,7 @@ class CallHistoryFragment : Fragment() {
                     type   = cur.getInt(iType),
                     date   = cur.getLong(iDate),
                     duration = cur.getLong(iDur),
-                    simSlot  = cur.getString(iSim) ?: ""
+                    simSlot  = null   // PHONE_ACCOUNT_ID là String, CallLogEntry.simSlot là Int? — không map trực tiếp
                 )
             }
         }
@@ -335,19 +347,27 @@ class CallHistoryFragment : Fragment() {
 
     private fun showCallRecordings(number: String) {
         val ctx = requireContext()
-        val files = CallRecordingManager.recordingsForNumber(ctx, number)
-        if (files.isEmpty()) {
+        val recordings = CallRecordingManager.getForNumber(ctx, number)
+        if (recordings.isEmpty()) {
             android.widget.Toast.makeText(ctx, "Chưa có bản ghi âm nào cho số này", android.widget.Toast.LENGTH_SHORT).show()
             return
         }
         val fmt = SimpleDateFormat("HH:mm d/M/yyyy", Locale.getDefault())
-        val labels = files.map { fmt.format(Date(it.lastModified())) }.toTypedArray()
+        // Ép kiểu rõ ràng thành Array<CharSequence> để tránh setItems ambiguity
+        val labels: Array<CharSequence> = recordings.map { r ->
+            fmt.format(java.util.Date(r.startTimeMillis)) + "  (${formatDurationVi(r.durationSeconds)})"
+        }.toTypedArray()
         android.app.AlertDialog.Builder(ctx)
-            .setTitle("Bản ghi âm (${files.size})")
+            .setTitle("Bản ghi âm (${recordings.size})")
             .setItems(labels) { _, which ->
+                val file = java.io.File(recordings[which].filePath)
+                if (!file.exists()) {
+                    android.widget.Toast.makeText(ctx, "File không còn tồn tại", android.widget.Toast.LENGTH_SHORT).show()
+                    return@setItems
+                }
                 try {
                     val uri = androidx.core.content.FileProvider.getUriForFile(
-                        ctx, "${ctx.packageName}.fileprovider", files[which])
+                        ctx, "${ctx.packageName}.fileprovider", file)
                     startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
                         setDataAndType(uri, "audio/mp4")
                         addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
