@@ -22,7 +22,6 @@ import com.h.simplecall.call.BlockedNumbersManager
 import com.h.simplecall.call.MissedCallNotifier
 import com.h.simplecall.databinding.ActivityMainBinding
 import com.h.simplecall.ui.CallHistoryFragment
-import com.h.simplecall.ui.CallLogFragment
 import com.h.simplecall.ui.ContactsFragment
 import com.h.simplecall.ui.DialerFragment
 
