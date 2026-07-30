@@ -57,12 +57,9 @@ class CallUiService : InCallService() {
 
         /** Tham chiếu tới chính InCallService này — BẮT BUỘC để đổi đường tiếng (loa ngoài/tai
          *  nghe) vì setAudioRoute() CHỈ tồn tại trên InCallService, không có trên Call hay bất kỳ
-         *  API công khai nào khác. Trước đây InCallActivity tự gọi thẳng
-         *  AudioManager.isSpeakerphoneOn = true để bật loa - với app KHÔNG phải ứng dụng điện
-         *  thoại mặc định thì cách này còn tạm ổn, nhưng khi app đã tự quản lý cuộc gọi qua
-         *  Telecom/InCallService (đúng vai trò hiện tại), Telecom TỰ ĐIỀU KHIỂN đường tiếng của
-         *  cuộc gọi và sẽ ghi đè/bỏ qua thay đổi đặt trực tiếp qua AudioManager - bấm nút Loa
-         *  không có tác dụng thật (âm thanh vẫn ra loa trong/tai nghe như cũ). */
+         *  API công khai nào khác. (Từng chỉ dùng đúng 1 mình setAudioRoute() vì nghĩ AudioManager
+         *  sẽ luôn bị Telecom ghi đè hoàn toàn - thực tế 1 số máy/ROM tuỳ biến vẫn cần thêm bước
+         *  AudioManager làm lớp bảo hiểm mới thực sự đổi được loa vật lý, xem setSpeakerOn()). */
         @Volatile var instance: CallUiService? = null
     }
 
@@ -78,9 +75,38 @@ class CallUiService : InCallService() {
         audioStateListener?.invoke(audioState)
     }
 
-    /** Đổi đường tiếng cuộc gọi qua đúng API Telecom (CallAudioState), không qua AudioManager. */
+    /** Đổi đường tiếng cuộc gọi qua đúng API Telecom (CallAudioState).
+     *
+     *  BỔ SUNG: chỉ gọi setAudioRoute() đôi khi KHÔNG đủ để phần cứng thật sự đổi loa trên 1 số
+     *  máy/ROM tuỳ biến (đặc biệt máy Android cũ hơn hoặc ROM Samsung/Xiaomi có lớp quản lý audio
+     *  riêng chồng lên Telecom chuẩn) - Telecom báo route đã đổi (CallAudioState cập nhật đúng)
+     *  nhưng loa vật lý vẫn im. Gọi thêm AudioManager làm lớp bảo hiểm thứ 2:
+     *  - Android 12+ (S): dùng setCommunicationDevice()/clearCommunicationDevice() - API CHÍNH
+     *    THỨC hiện tại để chọn thiết bị audio khi đang gọi, thay thế isSpeakerphoneOn cũ.
+     *  - Android cũ hơn: dùng lại isSpeakerphoneOn (dù deprecated) vì setCommunicationDevice()
+     *    chưa tồn tại trước API 31. */
     fun setSpeakerOn(on: Boolean) {
         setAudioRoute(if (on) CallAudioState.ROUTE_SPEAKER else CallAudioState.ROUTE_EARPIECE)
+        try {
+            val am = getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager ?: return
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (on) {
+                    val speakerDevice = am.availableCommunicationDevices
+                        .firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+                    if (speakerDevice != null) am.setCommunicationDevice(speakerDevice)
+                } else {
+                    // Về lại thiết bị mặc định của Telecom (tai nghe trong/tai nghe có dây/BT nếu có)
+                    if (am.communicationDevice?.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) {
+                        am.clearCommunicationDevice()
+                    }
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                am.isSpeakerphoneOn = on
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("CallUiService", "setSpeakerOn() lop bao hiem AudioManager loi, bo qua an toan", e)
+        }
     }
 
     /** Tắt/bật mic qua đúng API Telecom (InCallService.setMuted) - AudioManager.isMicrophoneMute
