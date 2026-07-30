@@ -73,6 +73,7 @@ class DialerFragment : Fragment() {
     private var toneGen: ToneGenerator? = null
     private lateinit var suggestAdapter: ContactSuggestAdapter
     private var keypadVisible = true
+    private var keypadVisibleBeforeSearch = true
     private var pendingNumberToAdd: String = ""
     private var allRecentEntries: List<CallLogEntry> = emptyList()
     private var showMissedOnly = false
@@ -130,7 +131,15 @@ class DialerFragment : Fragment() {
         }
         // Tìm kiếm inline giống hệt tab Gần đây: lọc trực tiếp trên danh sách allRecentEntries
         // đã tải sẵn ở nền, không cần toast placeholder nữa.
+        //
+        // LỖI ĐÃ SỬA: trước đây bấm icon tìm kiếm chỉ hiện thanh tìm kiếm + bật bàn phím HỆ THỐNG
+        // để gõ, nhưng KHÔNG ẩn panelKeypad (bàn phím số 0-9 riêng của app, luôn hiện sẵn ở màn
+        // Gần đây) - kết quả là 2 bàn phím cùng hiện chồng lên nhau. Giờ ẩn hẳn panelKeypad lúc
+        // mở tìm kiếm (chỉ cần bàn phím hệ thống là đủ để gõ tên/số tìm), và khôi phục lại ĐÚNG
+        // trạng thái bàn phím số trước đó (đang mở hay đã thu gọn) khi đóng tìm kiếm.
         b.btnDialerSearch.setOnClickListener {
+            keypadVisibleBeforeSearch = keypadVisible
+            if (keypadVisible) setKeypadVisible(false)
             b.searchBarDialer.visibility = View.VISIBLE
             b.llDialerTitleTabs.visibility = View.GONE
             b.etSearchDialer.requestFocus()
@@ -144,6 +153,7 @@ class DialerFragment : Fragment() {
             renderRecents(callCapableAccounts().size >= 2)
             val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
             imm?.hideSoftInputFromWindow(b.etSearchDialer.windowToken, 0)
+            if (keypadVisibleBeforeSearch) setKeypadVisible(true)
         }
         b.etSearchDialer.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
