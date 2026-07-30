@@ -2,4 +2,10 @@
 <paths>
     <!-- Khớp với CallRecordingManager.recordingsDir(): getExternalFilesDir(DIRECTORY_MUSIC)/CallRecordings -->
     <external-files-path name="call_recordings" path="Music/CallRecordings" />
+    <!-- File ghi âm do app ghi âm BÊN THỨ 3 tạo (quét ra qua MediaStore trong
+         CallRecordingManager.scanThirdPartyAudioFiles) có thể nằm ở BẤT KỲ đâu trong bộ nhớ dùng
+         chung, không nằm trong bộ nhớ riêng của app này - khai báo cả gốc bộ nhớ ngoài để
+         FileProvider.getUriForFile() vẫn chia sẻ được các file đó (chỉ dùng để CHIA SẺ ra app
+         khác qua Intent, không cấp quyền ghi/xoá gì thêm). -->
+    <external-path name="external_storage_root" path="." />
 </paths>

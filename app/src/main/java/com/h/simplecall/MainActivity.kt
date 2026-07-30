@@ -51,6 +51,12 @@ class MainActivity : AppCompatActivity() {
         // thông báo cuộc gọi nhỡ trên Android 13+ (dù đã khai báo trong Manifest).
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             add(android.Manifest.permission.POST_NOTIFICATIONS)
+            add(android.Manifest.permission.READ_MEDIA_AUDIO)
+        } else {
+            // Cần để CallRecordingManager quét ra file ghi âm do app ghi âm bên thứ 3 tạo (nằm
+            // ngoài bộ nhớ riêng của app này). Nếu bị từ chối, tính năng chỉ đơn giản không tìm
+            // thấy file bên thứ 3, không ảnh hưởng phần còn lại của app.
+            add(android.Manifest.permission.READ_EXTERNAL_STORAGE)
         }
     }.toTypedArray()
 

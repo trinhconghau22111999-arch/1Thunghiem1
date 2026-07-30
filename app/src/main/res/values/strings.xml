@@ -73,6 +73,7 @@
     <string name="recording_delete">Xóa</string>
     <string name="recording_delete_confirm">Xóa bản ghi âm này?</string>
     <string name="recording_deleted">Đã xóa bản ghi âm</string>
+    <string name="recording_delete_failed">Không thể xóa file này (do app ghi âm khác tạo ra, hãy thử xóa trong app đó)</string>
     <string name="recording_play_failed">Không phát được file ghi âm</string>
     <string name="feature_coming_soon">Tính năng đang được phát triển</string>
     <string name="contacts_title">Danh bạ</string>
