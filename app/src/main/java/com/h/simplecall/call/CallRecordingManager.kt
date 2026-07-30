@@ -31,6 +31,7 @@ object CallRecordingManager {
     private const val PREFS = "call_recording_prefs"
     private const val KEY_ENABLED = "auto_record_enabled"
     private const val KEY_ENTRIES = "recording_entries_json"
+    private const val KEY_THIRD_PARTY_PKG = "third_party_recorder_package"
     private const val FOLDER_NAME = "CallRecordings"
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -39,6 +40,34 @@ object CallRecordingManager {
 
     fun setEnabled(ctx: Context, enabled: Boolean) {
         prefs(ctx).edit().putBoolean(KEY_ENABLED, enabled).apply()
+    }
+
+    /** Package name của app ghi âm bên thứ 3 mà user đã chọn. null = chưa chọn. */
+    fun getThirdPartyRecorderPackage(ctx: Context): String? =
+        prefs(ctx).getString(KEY_THIRD_PARTY_PKG, null).takeIf { !it.isNullOrBlank() }
+
+    fun setThirdPartyRecorderPackage(ctx: Context, packageName: String?) {
+        prefs(ctx).edit().putString(KEY_THIRD_PARTY_PKG, packageName ?: "").apply()
+        // Khi đã chọn app bên thứ 3, bật enabled luôn để CallStateReceiver biết cần launch
+        setEnabled(ctx, packageName != null)
+    }
+
+    /** Tìm tất cả app ghi âm đang cài trên máy (có thể mở được bằng MAIN/LAUNCHER).
+     *  Dùng để hiện picker cho user chọn. */
+    fun findRecorderApps(ctx: Context): List<android.content.pm.ResolveInfo> {
+        val pm = ctx.packageManager
+        val intent = android.content.Intent(android.content.Intent.ACTION_MAIN).apply {
+            addCategory(android.content.Intent.CATEGORY_LAUNCHER)
+        }
+        val all = pm.queryIntentActivities(intent, 0)
+        // Lọc theo tên gợi ý: record, ghi âm, voice, audio — đủ bắt Samsung Voice Recorder,
+        // Google Recorder, ACR, Cube Call Recorder, Easy Voice Recorder...
+        val keywords = listOf("record", "voice", "audio", "ghi", "âm", "acr", "cube", "easy")
+        return all.filter { ri ->
+            val name = ri.loadLabel(pm).toString().lowercase()
+            val pkg  = ri.activityInfo.packageName.lowercase()
+            keywords.any { name.contains(it) || pkg.contains(it) }
+        }.sortedBy { it.loadLabel(pm).toString() }
     }
 
     /** Thư mục lưu file ghi âm - nằm trong bộ nhớ riêng của app (không cần xin quyền lưu trữ,

@@ -62,8 +62,8 @@
     <string name="recording_notif_text">Cuộc gọi đang được ghi âm • Loa ngoài đã bật để thu cả 2 chiều</string>
     <string name="recording_channel_name">Ghi âm cuộc gọi</string>
     <string name="settings_call_recording_section">Ghi âm cuộc gọi</string>
-    <string name="auto_record_calls">Tự động ghi âm cuộc gọi</string>
-    <string name="auto_record_calls_notice">Nhiều dòng máy đời mới (Android 10+) chặn ứng dụng thường ghi trực tiếp âm thanh cuộc gọi, nên bản ghi có thể chỉ thu được giọng của bạn. Bật loa ngoài khi gọi giúp thu được cả 2 chiều tốt hơn. Hãy tìm hiểu quy định pháp luật nơi bạn sinh sống trước khi ghi âm cuộc gọi.</string>
+    <string name="auto_record_calls">App ghi âm tự động</string>
+    <string name="auto_record_calls_notice">Chọn app ghi âm bên thứ 3 trên máy (Google Recorder, ACR, Easy Voice Recorder…). Khi cuộc gọi bắt đầu, app đó sẽ được mở tự động song song. Hãy tìm hiểu quy định pháp luật nơi bạn sinh sống trước khi ghi âm cuộc gọi.</string>
     <string name="no_recordings_for_number">Chưa có bản ghi âm nào cho số này</string>
     <string name="no_recording_for_this_call">Không có bản ghi âm cho cuộc gọi này</string>
     <string name="recording_list_title">Bản ghi âm cuộc gọi</string>

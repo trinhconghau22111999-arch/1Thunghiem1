@@ -44,14 +44,37 @@ class CallStateReceiver : BroadcastReceiver() {
                 if (!CallRecordingManager.isEnabled(context)) return
                 val number = ringingNumber ?: pendingOutgoingNumber ?: ""
                 isRecordingActive = true
-                CallRecordingService.start(context, number)
+
+                val thirdPartyPkg = CallRecordingManager.getThirdPartyRecorderPackage(context)
+                if (thirdPartyPkg != null) {
+                    // Dùng app ghi âm bên thứ 3: launch bằng Intent MAIN/LAUNCHER theo package.
+                    // FLAG_ACTIVITY_NEW_TASK bắt buộc vì đang gọi từ BroadcastReceiver (không có Activity context).
+                    // FLAG_ACTIVITY_REORDER_TO_FRONT: nếu app đó đang chạy ở nền thì kéo lên foreground thay vì tạo instance mới.
+                    try {
+                        val pm = context.packageManager
+                        val launchIntent = pm.getLaunchIntentForPackage(thirdPartyPkg)
+                        if (launchIntent != null) {
+                            launchIntent.addFlags(
+                                android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                                android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                            )
+                            context.startActivity(launchIntent)
+                        }
+                    } catch (_: Exception) { /* app bị gỡ/lỗi - bỏ qua */ }
+                } else {
+                    // Không có app bên thứ 3 → fallback về ghi âm nội bộ (nếu vẫn muốn dùng)
+                    CallRecordingService.start(context, number)
+                }
             }
             TelephonyManager.EXTRA_STATE_IDLE -> {
                 ringingNumber = null
                 pendingOutgoingNumber = null
                 if (isRecordingActive) {
                     isRecordingActive = false
-                    CallRecordingService.stop(context)
+                    // Chỉ dừng service nội bộ nếu không dùng app bên thứ 3
+                    if (CallRecordingManager.getThirdPartyRecorderPackage(context) == null) {
+                        CallRecordingService.stop(context)
+                    }
                 }
             }
         }
