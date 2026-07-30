@@ -59,7 +59,7 @@
     <string name="recording_saved">Đã lưu bản ghi âm cuộc gọi</string>
     <string name="recording_failed">Máy không hỗ trợ ghi âm cuộc gọi</string>
     <string name="recording_notif_title">Đang ghi âm cuộc gọi</string>
-    <string name="recording_notif_text">Cuộc gọi này đang được ghi âm</string>
+    <string name="recording_notif_text">Cuộc gọi đang được ghi âm • Loa ngoài đã bật để thu cả 2 chiều</string>
     <string name="recording_channel_name">Ghi âm cuộc gọi</string>
     <string name="settings_call_recording_section">Ghi âm cuộc gọi</string>
     <string name="auto_record_calls">Tự động ghi âm cuộc gọi</string>

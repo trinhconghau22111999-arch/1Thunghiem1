@@ -4,6 +4,13 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.media.MediaPlayer
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.view.LayoutInflater
+import android.view.View
+import android.widget.ImageButton
+import android.widget.ProgressBar
+import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
@@ -22,6 +29,9 @@ import java.util.Locale
 object CallRecordingListDialog {
 
     private var player: MediaPlayer? = null
+    private var progressDialog: AlertDialog? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private var progressRunnable: Runnable? = null
 
     fun show(fragment: Fragment, number: String) {
         val ctx = fragment.requireContext()
@@ -81,22 +91,92 @@ object CallRecordingListDialog {
             return
         }
         try {
-            player = MediaPlayer().apply {
+            val mp = MediaPlayer().apply {
                 setDataSource(file.absolutePath)
-                setOnCompletionListener { stopPlayback() }
                 prepare()
-                start()
             }
-            Toast.makeText(ctx, R.string.recording_play, Toast.LENGTH_SHORT).show()
+            player = mp
+
+            // Tạo view dialog phát nhạc bằng code (không cần layout XML riêng)
+            val dialogView = android.widget.LinearLayout(ctx).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                val pad = (16 * ctx.resources.displayMetrics.density).toInt()
+                setPadding(pad, pad, pad, pad / 2)
+            }
+            val progressBar = ProgressBar(ctx, null, android.R.attr.progressBarStyleHorizontal).apply {
+                max = mp.duration.coerceAtLeast(1)
+                progress = 0
+                isIndeterminate = false
+                val lp = android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                val margin = (8 * ctx.resources.displayMetrics.density).toInt()
+                lp.setMargins(0, margin, 0, margin)
+                layoutParams = lp
+            }
+            val tvTime = TextView(ctx).apply {
+                text = "0:00 / ${formatDuration(mp.duration.toLong() / 1000)}"
+                textAlignment = View.TEXT_ALIGNMENT_CENTER
+                val lp = android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                layoutParams = lp
+            }
+            dialogView.addView(progressBar)
+            dialogView.addView(tvTime)
+
+            // Cập nhật progress mỗi 500ms
+            val updateProgress = object : Runnable {
+                override fun run() {
+                    val p = player ?: return
+                    try {
+                        if (p.isPlaying) {
+                            val pos = p.currentPosition
+                            val dur = p.duration.coerceAtLeast(1)
+                            progressBar.max = dur
+                            progressBar.progress = pos
+                            tvTime.text = "${formatDuration(pos.toLong() / 1000)} / ${formatDuration(dur.toLong() / 1000)}"
+                            handler.postDelayed(this, 500)
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+            progressRunnable = updateProgress
+
+            val dialog = AlertDialog.Builder(ctx)
+                .setTitle(R.string.recording_play)
+                .setView(dialogView)
+                .setNegativeButton(R.string.recording_pause) { _, _ -> stopPlayback() }
+                .setOnDismissListener { stopPlayback() }
+                .create()
+            progressDialog = dialog
+
+            mp.setOnCompletionListener {
+                handler.post {
+                    progressBar.progress = progressBar.max
+                    tvTime.text = formatDuration(mp.duration.toLong() / 1000) + " / " + formatDuration(mp.duration.toLong() / 1000)
+                    progressDialog?.dismiss()
+                    stopPlayback()
+                }
+            }
+            mp.start()
+            handler.post(updateProgress)
+            dialog.show()
         } catch (_: Exception) {
             Toast.makeText(ctx, R.string.recording_play_failed, Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun stopPlayback() {
+        progressRunnable?.let { handler.removeCallbacks(it) }
+        progressRunnable = null
         runCatching { player?.stop() }
         runCatching { player?.release() }
         player = null
+        runCatching { progressDialog?.dismiss() }
+        progressDialog = null
     }
 
     private fun share(fragment: Fragment, recording: CallRecording) {

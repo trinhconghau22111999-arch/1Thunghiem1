@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.media.AudioManager
 import android.media.MediaRecorder
 import android.os.Build
 import android.os.IBinder
@@ -50,6 +51,7 @@ class CallRecordingService : Service() {
     private var currentFile: File? = null
     private var currentNumber: String = ""
     private var startTimeMillis: Long = 0L
+    private var speakerWasOn: Boolean = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -82,6 +84,16 @@ class CallRecordingService : Service() {
         currentNumber = number
         startTimeMillis = System.currentTimeMillis()
         currentFile = CallRecordingManager.newFileFor(this, number, startTimeMillis)
+
+        // Bật loa ngoài để mic bắt được cả 2 chiều khi dùng nguồn MIC/VOICE_COMMUNICATION.
+        // VOICE_CALL bị chặn trên hầu hết máy Android 10+ — loa ngoài là cách duy nhất để mic
+        // thật sự thu được tiếng đầu dây bên kia (âm thanh loa thoát ra → mic trong máy bắt).
+        // Lưu lại trạng thái loa cũ để khôi phục đúng khi ghi xong.
+        val am = getSystemService(AudioManager::class.java)
+        if (am != null) {
+            speakerWasOn = am.isSpeakerphoneOn
+            if (!speakerWasOn) am.isSpeakerphoneOn = true
+        }
 
         // Thử lần lượt 3 nguồn âm thanh, từ "tốt nhất nếu máy cho phép" tới "chắc chắn hoạt
         // động nhưng chỉ thu giọng người dùng máy này". Xem ghi chú giới hạn trong
@@ -152,8 +164,15 @@ class CallRecordingService : Service() {
     }
 
     private fun cleanupAndStop() {
+        // Khôi phục trạng thái loa ngoài về như trước khi bắt đầu ghi âm
+        if (!speakerWasOn) {
+            runCatching {
+                getSystemService(AudioManager::class.java)?.isSpeakerphoneOn = false
+            }
+        }
         currentFile = null
         currentNumber = ""
+        speakerWasOn = false
         stopForegroundCompat()
         stopSelf()
     }
