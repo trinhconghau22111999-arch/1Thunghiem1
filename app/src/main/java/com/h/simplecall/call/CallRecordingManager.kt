@@ -60,14 +60,24 @@ object CallRecordingManager {
             addCategory(android.content.Intent.CATEGORY_LAUNCHER)
         }
         val all = pm.queryIntentActivities(intent, 0)
-        // Lọc theo tên gợi ý: record, ghi âm, voice, audio — đủ bắt Samsung Voice Recorder,
-        // Google Recorder, ACR, Cube Call Recorder, Easy Voice Recorder...
-        val keywords = listOf("record", "voice", "audio", "ghi", "âm", "acr", "cube", "easy")
+        // Lọc theo package name và label — chỉ dùng keyword rõ ràng liên quan đến ghi âm,
+        // KHÔNG dùng keyword chung chung ("audio", "voice", "easy") để tránh lọt app không liên quan.
+        val pkgKeywords  = listOf("record", "recorder", "callrecord", "acr", "cube.acr", "boldbeast")
+        val nameKeywords = listOf("ghi âm", "ghi am", "recorder", "record call", "acr", "call recorder")
         return all.filter { ri ->
             val name = ri.loadLabel(pm).toString().lowercase()
             val pkg  = ri.activityInfo.packageName.lowercase()
-            keywords.any { name.contains(it) || pkg.contains(it) }
+            pkgKeywords.any { pkg.contains(it) } || nameKeywords.any { name.contains(it) }
         }.sortedBy { it.loadLabel(pm).toString() }
+    }
+
+    /** Trả toàn bộ app đang cài (cho picker "chọn thủ công"). */
+    fun findAllApps(ctx: Context): List<android.content.pm.ResolveInfo> {
+        val pm = ctx.packageManager
+        val intent = android.content.Intent(android.content.Intent.ACTION_MAIN).apply {
+            addCategory(android.content.Intent.CATEGORY_LAUNCHER)
+        }
+        return pm.queryIntentActivities(intent, 0).sortedBy { it.loadLabel(pm).toString() }
     }
 
     /** Thư mục lưu file ghi âm - nằm trong bộ nhớ riêng của app (không cần xin quyền lưu trữ,

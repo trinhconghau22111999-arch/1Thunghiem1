@@ -50,24 +50,50 @@ class SettingsFragment : Fragment() {
     }
 
     private fun showRecorderAppPicker() {
+        showAppPickerDialog(useAllApps = false)
+    }
+
+    private fun showAppPickerDialog(useAllApps: Boolean) {
         val ctx = requireContext()
-        val apps = CallRecordingManager.findRecorderApps(ctx)
         val pm = ctx.packageManager
+        val apps = if (useAllApps) CallRecordingManager.findAllApps(ctx)
+                   else CallRecordingManager.findRecorderApps(ctx)
         val currentPkg = CallRecordingManager.getThirdPartyRecorderPackage(ctx)
 
-        // Tạo danh sách: "Tắt (không ghi âm)" + các app tìm được
+        if (!useAllApps && apps.isEmpty()) {
+            // Không tìm thấy app nào qua filter → hỏi có muốn chọn thủ công không
+            android.app.AlertDialog.Builder(ctx)
+                .setTitle("Chọn app ghi âm")
+                .setMessage("Không tìm thấy app ghi âm nào trên máy.\n\nBạn có thể chọn thủ công từ danh sách tất cả app, hoặc cài thêm app ghi âm (ACR, Easy Voice Recorder…) từ CH Play.")
+                .setPositiveButton("Chọn từ tất cả app") { _, _ -> showAppPickerDialog(useAllApps = true) }
+                .setNeutralButton("Mở CH Play") { _, _ ->
+                    try {
+                        startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse("market://search?q=call+recorder&c=apps")))
+                    } catch (_: Exception) {
+                        startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse("https://play.google.com/store/search?q=call+recorder&c=apps")))
+                    }
+                }
+                .setNegativeButton("Huỷ", null)
+                .show()
+            return
+        }
+
+        // Tạo danh sách: "Tắt" + các app tìm được
         val labels = mutableListOf<CharSequence>("Tắt (không ghi âm tự động)")
         apps.forEach { labels.add(it.loadLabel(pm)) }
 
+        val checkedItem = if (currentPkg == null) 0
+        else apps.indexOfFirst { it.activityInfo.packageName == currentPkg }.let {
+            if (it < 0) 0 else it + 1
+        }
+
+        val title = if (useAllApps) "Chọn app (tất cả)" else "Chọn app ghi âm"
+
         android.app.AlertDialog.Builder(ctx)
-            .setTitle("Chọn app ghi âm")
-            .setSingleChoiceItems(labels.toTypedArray(), run {
-                // Đánh dấu item đang chọn
-                if (currentPkg == null) 0
-                else apps.indexOfFirst { it.activityInfo.packageName == currentPkg }.let {
-                    if (it < 0) 0 else it + 1
-                }
-            }) { dialog, which ->
+            .setTitle(title)
+            .setSingleChoiceItems(labels.toTypedArray(), checkedItem) { dialog, which ->
                 if (which == 0) {
                     CallRecordingManager.setThirdPartyRecorderPackage(ctx, null)
                 } else {
@@ -77,22 +103,10 @@ class SettingsFragment : Fragment() {
                 refreshAutoRecordUi()
                 dialog.dismiss()
             }
-            .setNegativeButton("Huỷ", null)
-            .also { builder ->
-                // Nếu không tìm thấy app nào, thêm nút mở CH Play gợi ý tìm app ghi âm
-                if (apps.isEmpty()) {
-                    builder.setMessage("Không tìm thấy app ghi âm nào trên máy.\nBạn có thể cài \"Google Recorder\", \"ACR\", hoặc \"Easy Voice Recorder\" từ CH Play.")
-                    builder.setPositiveButton("Mở CH Play") { _, _ ->
-                        try {
-                            startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse("market://search?q=call+recorder&c=apps")))
-                        } catch (_: Exception) {
-                            startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse("https://play.google.com/store/search?q=call+recorder&c=apps")))
-                        }
-                    }
-                }
+            .setNeutralButton(if (useAllApps) null else "Tất cả app") { _, _ ->
+                showAppPickerDialog(useAllApps = true)
             }
+            .setNegativeButton("Huỷ", null)
             .show()
     }
 
