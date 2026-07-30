@@ -315,7 +315,12 @@ class ContactDetailFragment : Fragment() {
         else
             SimpleDateFormat("d/M", Locale.getDefault()).format(Date(item.date))
 
-        rb.root.setOnClickListener { (activity as? MainActivity)?.placeCall(item.number) }
+        // TRƯỚC ĐÂY: bấm vào 1 dòng nhật ký sẽ GỌI LẠI số đó - trùng lặp với nút Gọi riêng đã có
+        // ngay phía trên (hàng "Di động"). Giờ đổi thành mở bản ghi âm CỦA ĐÚNG cuộc gọi này (so
+        // khớp theo số + thời điểm gần nhất - xem CallRecordingManager.getForCallLogEntry()).
+        rb.root.setOnClickListener {
+            CallRecordingListDialog.showForCallLogEntry(this, item.number, item.date)
+        }
     }
 
     /** Cách nhóm số điện thoại theo 3-3-2-2, ví dụ "0901300836" -> "090 130 08 36",

@@ -103,6 +103,22 @@ object CallRecordingManager {
         return getAll(ctx).filter { it.number.filter(Char::isDigit).takeLast(9) == target }
     }
 
+    /** Tìm ĐÚNG bản ghi âm của 1 dòng cụ thể trong "Nhật ký cuộc gọi" (thay vì cả danh sách theo
+     *  số) - dùng khi bấm vào 1 dòng lịch sử để mở lại bản ghi của riêng cuộc gọi đó. Vì không
+     *  lưu chung ID với CallLog hệ thống, so khớp gần đúng: cùng số + thời điểm bắt đầu ghi cách
+     *  thời điểm CallLog ghi nhận không quá [toleranceMillis] (mặc định 2 phút, đủ rộng để chấp
+     *  nhận độ trễ nhỏ giữa lúc Telecom báo OFFHOOK và lúc CallLog thực sự ghi dòng mới, nhưng đủ
+     *  hẹp để không lấy nhầm sang cuộc gọi khác cùng số ở thời điểm khác trong ngày). Nếu có nhiều
+     *  ứng viên trong ngưỡng, chọn bản ghi gần nhất về thời gian.
+     */
+    fun getForCallLogEntry(
+        ctx: Context, number: String, callDateMillis: Long, toleranceMillis: Long = 2 * 60_000L
+    ): CallRecording? {
+        return getForNumber(ctx, number)
+            .filter { kotlin.math.abs(it.startTimeMillis - callDateMillis) <= toleranceMillis }
+            .minByOrNull { kotlin.math.abs(it.startTimeMillis - callDateMillis) }
+    }
+
     private fun readAll(ctx: Context): JSONArray = try {
         JSONArray(prefs(ctx).getString(KEY_ENTRIES, null) ?: "[]")
     } catch (_: Exception) { JSONArray() }

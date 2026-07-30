@@ -327,7 +327,12 @@ class CallHistoryFragment : Fragment() {
         else
             SimpleDateFormat("d/M", Locale.getDefault()).format(Date(item.date))
 
-        rb.root.setOnClickListener { (activity as? MainActivity)?.placeCall(item.number) }
+        // TRƯỚC ĐÂY: bấm vào 1 dòng nhật ký sẽ GỌI LẠI số đó - trùng lặp với nút Gọi riêng đã có
+        // ngay phía trên (hàng "Di động"). Giờ đổi thành mở bản ghi âm CỦA ĐÚNG cuộc gọi này (so
+        // khớp theo số + thời điểm gần nhất - xem CallRecordingManager.getForCallLogEntry()).
+        rb.root.setOnClickListener {
+            CallRecordingListDialog.showForCallLogEntry(this, item.number, item.date)
+        }
     }
 
     private fun clearSystemCallLog(number: String) {

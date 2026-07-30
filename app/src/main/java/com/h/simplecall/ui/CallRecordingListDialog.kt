@@ -42,6 +42,18 @@ object CallRecordingListDialog {
             .show()
     }
 
+    /** Mở đúng bản ghi âm của 1 dòng cụ thể trong "Nhật ký cuộc gọi" (không phải cả danh sách
+     *  theo số) - dùng khi bấm vào 1 dòng lịch sử cuộc gọi, thay vì gọi lại số đó. */
+    fun showForCallLogEntry(fragment: Fragment, number: String, callDateMillis: Long) {
+        val ctx = fragment.requireContext()
+        val recording = CallRecordingManager.getForCallLogEntry(ctx, number, callDateMillis)
+        if (recording == null) {
+            Toast.makeText(ctx, R.string.no_recording_for_this_call, Toast.LENGTH_SHORT).show()
+            return
+        }
+        showActions(fragment, recording)
+    }
+
     private fun showActions(fragment: Fragment, recording: CallRecording) {
         val ctx = fragment.requireContext()
         val actions = arrayOf(
