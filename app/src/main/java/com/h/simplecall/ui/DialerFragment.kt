@@ -85,6 +85,11 @@ class DialerFragment : Fragment() {
     // "Phiên bản" mỗi lần gõ số, dùng để huỷ kết quả tra cứu cũ trả về trễ (gõ nhanh nhiều ký tự)
     private var searchGeneration = 0
 
+    // ContentObserver lắng nghe CallLog.Calls.CONTENT_URI: hệ thống ghi xong 1 cuộc gọi vào
+    // CallLog (thường 1-3 giây sau khi kết thúc) thì observer này tự kích hoạt loadRecents()
+    // lại ngay, không phụ thuộc vào onResume() đã chạy trước hay sau khi CallLog cập nhật.
+    private var callLogObserver: android.database.ContentObserver? = null
+
     private val pickContactLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.PickContact()
     ) { contactUri ->
@@ -832,6 +837,30 @@ class DialerFragment : Fragment() {
         setupCallButtons()
         if (hasResumedOnce) loadRecents()
         hasResumedOnce = true
+
+        // Đăng ký lắng nghe thay đổi CallLog để tự refresh khi hệ thống ghi xong cuộc gọi mới.
+        // Đăng ký trong onResume / huỷ trong onPause để không tiêu tài nguyên khi tab không hiện.
+        if (callLogObserver == null) {
+            callLogObserver = object : android.database.ContentObserver(mainHandler) {
+                override fun onChange(selfChange: Boolean) {
+                    if (_b == null || !isAdded) return
+                    loadRecents()
+                }
+            }
+            requireContext().contentResolver.registerContentObserver(
+                android.provider.CallLog.Calls.CONTENT_URI,
+                true,
+                callLogObserver!!
+            )
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        callLogObserver?.let {
+            runCatching { requireContext().contentResolver.unregisterContentObserver(it) }
+        }
+        callLogObserver = null
     }
 
     override fun onDestroyView() {
