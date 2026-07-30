@@ -12,8 +12,9 @@ import com.h.simplecall.call.CallRecordingManager
 import com.h.simplecall.databinding.FragmentSettingsBinding
 
 /** Màn Cài đặt - giống mục cài đặt của app điện thoại gốc trên máy. Có mục "Giao diện" cho phép
- *  chọn Sáng/Tối (xem ThemePrefs.kt), và mục "Ghi âm cuộc gọi" bật/tắt tự động ghi âm mỗi cuộc
- *  gọi (xem CallRecordingManager.kt, CallStateReceiver.kt, CallRecordingService.kt). */
+ *  chọn Sáng/Tối (xem ThemePrefs.kt), và mục "Ghi âm cuộc gọi" bật/tắt tự động MỞ app VOX Ghi Âm
+ *  mỗi khi có cuộc gọi (xem CallRecordingManager.kt, CallStateReceiver.kt) - đây là app ghi âm
+ *  DUY NHẤT được dùng, không còn cho chọn app khác hay ghi âm nội bộ nữa. */
 class SettingsFragment : Fragment() {
 
     private var _b: FragmentSettingsBinding? = null
@@ -45,69 +46,24 @@ class SettingsFragment : Fragment() {
         b.switchDarkMode.setOnClickListener { toggle() }
 
         refreshAutoRecordUi()
-        b.rowAutoRecord.setOnClickListener { showRecorderAppPicker() }
-        b.switchAutoRecord.setOnClickListener { showRecorderAppPicker() }
+        b.rowAutoRecord.setOnClickListener { toggleAutoRecord() }
+        b.switchAutoRecord.setOnClickListener { toggleAutoRecord() }
     }
 
-    private fun showRecorderAppPicker() {
-        showAppPickerDialog(useAllApps = false)
-    }
-
-    private fun showAppPickerDialog(useAllApps: Boolean) {
+    /** Bật/tắt "tự động mở VOX Ghi Âm khi có cuộc gọi" - KHÔNG còn cho chọn app khác, chỉ 1
+     *  công tắc bật/tắt duy nhất cho đúng 1 app cố định ([CallRecordingManager.RECORDER_PACKAGE]). */
+    private fun toggleAutoRecord() {
         val ctx = requireContext()
-        val pm = ctx.packageManager
-        val apps = if (useAllApps) CallRecordingManager.findAllApps(ctx)
-                   else CallRecordingManager.findRecorderApps(ctx)
-        val currentPkg = CallRecordingManager.getThirdPartyRecorderPackage(ctx)
-
-        if (!useAllApps && apps.isEmpty()) {
-            // Không tìm thấy app nào qua filter → hỏi có muốn chọn thủ công không
+        if (!CallRecordingManager.isEnabled(ctx) && !CallRecordingManager.isRecorderAppInstalled(ctx)) {
             android.app.AlertDialog.Builder(ctx)
-                .setTitle("Chọn app ghi âm")
-                .setMessage("Không tìm thấy app ghi âm nào trên máy.\n\nBạn có thể chọn thủ công từ danh sách tất cả app, hoặc cài thêm app ghi âm (ACR, Easy Voice Recorder…) từ CH Play.")
-                .setPositiveButton("Chọn từ tất cả app") { _, _ -> showAppPickerDialog(useAllApps = true) }
-                .setNeutralButton("Mở CH Play") { _, _ ->
-                    try {
-                        startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
-                            android.net.Uri.parse("market://search?q=call+recorder&c=apps")))
-                    } catch (_: Exception) {
-                        startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
-                            android.net.Uri.parse("https://play.google.com/store/search?q=call+recorder&c=apps")))
-                    }
-                }
-                .setNegativeButton("Huỷ", null)
+                .setTitle(CallRecordingManager.RECORDER_APP_NAME)
+                .setMessage("Chưa cài ứng dụng ${CallRecordingManager.RECORDER_APP_NAME} trên máy này. Cài đặt xong hãy quay lại bật tính năng này.")
+                .setPositiveButton("Đã hiểu", null)
                 .show()
             return
         }
-
-        // Tạo danh sách: "Tắt" + các app tìm được
-        val labels = mutableListOf<CharSequence>("Tắt (không ghi âm tự động)")
-        apps.forEach { labels.add(it.loadLabel(pm)) }
-
-        val checkedItem = if (currentPkg == null) 0
-        else apps.indexOfFirst { it.activityInfo.packageName == currentPkg }.let {
-            if (it < 0) 0 else it + 1
-        }
-
-        val title = if (useAllApps) "Chọn app (tất cả)" else "Chọn app ghi âm"
-
-        android.app.AlertDialog.Builder(ctx)
-            .setTitle(title)
-            .setSingleChoiceItems(labels.toTypedArray(), checkedItem) { dialog, which ->
-                if (which == 0) {
-                    CallRecordingManager.setThirdPartyRecorderPackage(ctx, null)
-                } else {
-                    val pkg = apps[which - 1].activityInfo.packageName
-                    CallRecordingManager.setThirdPartyRecorderPackage(ctx, pkg)
-                }
-                refreshAutoRecordUi()
-                dialog.dismiss()
-            }
-            .setNeutralButton(if (useAllApps) null else "Tất cả app") { _, _ ->
-                showAppPickerDialog(useAllApps = true)
-            }
-            .setNegativeButton("Huỷ", null)
-            .show()
+        CallRecordingManager.setEnabled(ctx, !CallRecordingManager.isEnabled(ctx))
+        refreshAutoRecordUi()
     }
 
     private fun refreshDarkModeUi() {
@@ -120,17 +76,12 @@ class SettingsFragment : Fragment() {
     private fun refreshAutoRecordUi() {
         if (_b == null || !isAdded) return
         val ctx = requireContext()
-        val pkg = CallRecordingManager.getThirdPartyRecorderPackage(ctx)
-        b.switchAutoRecord.isChecked = pkg != null
-        b.tvAutoRecordSubtitle.text = if (pkg != null) {
-            try {
-                val appName = ctx.packageManager.getApplicationLabel(
-                    ctx.packageManager.getApplicationInfo(pkg, 0)
-                )
-                "Đang dùng: $appName"
-            } catch (_: Exception) { "Đang bật (app không xác định)" }
+        val enabled = CallRecordingManager.isEnabled(ctx)
+        b.switchAutoRecord.isChecked = enabled
+        b.tvAutoRecordSubtitle.text = if (enabled) {
+            "Đang dùng: ${CallRecordingManager.RECORDER_APP_NAME}"
         } else {
-            "Tắt (mặc định)"
+            "Tắt (mặc định) - dùng ${CallRecordingManager.RECORDER_APP_NAME}"
         }
     }
 

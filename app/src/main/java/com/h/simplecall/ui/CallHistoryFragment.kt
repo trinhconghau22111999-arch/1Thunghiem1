@@ -223,8 +223,8 @@ class CallHistoryFragment : Fragment() {
         b.rowMeet.visibility = View.GONE
         b.rowCallSummary.visibility = View.GONE
 
-        // ── Bản ghi âm cuộc gọi ──
-        b.rowCallRecording.setOnClickListener { showCallRecordings(number) }
+        // ── Bản ghi âm cuộc gọi: mở thẳng app VOX Ghi Âm (app ghi âm DUY NHẤT được dùng) ──
+        b.rowCallRecording.setOnClickListener { openRecorderApp() }
 
         // ── Xoá nhật ký (xoá khỏi CallLog hệ thống) ──
         b.btnClearLog.setOnClickListener { clearSystemCallLog(number) }
@@ -328,11 +328,10 @@ class CallHistoryFragment : Fragment() {
             SimpleDateFormat("d/M", Locale.getDefault()).format(Date(item.date))
 
         // TRƯỚC ĐÂY: bấm vào 1 dòng nhật ký sẽ GỌI LẠI số đó - trùng lặp với nút Gọi riêng đã có
-        // ngay phía trên (hàng "Di động"). Giờ đổi thành mở bản ghi âm CỦA ĐÚNG cuộc gọi này (so
-        // khớp theo số + thời điểm gần nhất - xem CallRecordingManager.getForCallLogEntry()).
-        rb.root.setOnClickListener {
-            CallRecordingListDialog.showForCallLogEntry(this, item.number, item.date)
-        }
+        // ngay phía trên (hàng "Di động"). Sau đó đổi thành mở bản ghi âm nội bộ của đúng cuộc gọi
+        // này - giờ app không còn lưu bản ghi âm nội bộ nữa nên chỉ còn cách mở thẳng VOX Ghi Âm
+        // lên để người dùng tự tìm bản ghi tương ứng trong app đó.
+        rb.root.setOnClickListener { openRecorderApp() }
     }
 
     private fun clearSystemCallLog(number: String) {
@@ -350,38 +349,18 @@ class CallHistoryFragment : Fragment() {
         }
     }
 
-    private fun showCallRecordings(number: String) {
+    /** Mở thẳng app ghi âm DUY NHẤT được dùng - VOX Ghi Âm (xem CallRecordingManager.kt).
+     *  Không còn danh sách bản ghi âm nội bộ trong app này nữa. */
+    private fun openRecorderApp() {
         val ctx = requireContext()
-        val recordings = CallRecordingManager.getForNumber(ctx, number)
-        if (recordings.isEmpty()) {
-            android.widget.Toast.makeText(ctx, "Chưa có bản ghi âm nào cho số này", android.widget.Toast.LENGTH_SHORT).show()
-            return
+        val opened = CallRecordingManager.openRecorderApp(ctx)
+        if (!opened) {
+            android.widget.Toast.makeText(
+                ctx,
+                "Chưa cài ${CallRecordingManager.RECORDER_APP_NAME} trên máy này",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
         }
-        val fmt = SimpleDateFormat("HH:mm d/M/yyyy", Locale.getDefault())
-        // Ép kiểu rõ ràng thành Array<CharSequence> để tránh setItems ambiguity
-        val labels: Array<CharSequence> = recordings.map { r ->
-            fmt.format(java.util.Date(r.startTimeMillis)) + "  (${formatDurationVi(r.durationSeconds)})"
-        }.toTypedArray()
-        android.app.AlertDialog.Builder(ctx)
-            .setTitle("Bản ghi âm (${recordings.size})")
-            .setItems(labels) { _, which ->
-                val file = java.io.File(recordings[which].filePath)
-                if (!file.exists()) {
-                    android.widget.Toast.makeText(ctx, "File không còn tồn tại", android.widget.Toast.LENGTH_SHORT).show()
-                    return@setItems
-                }
-                try {
-                    val uri = androidx.core.content.FileProvider.getUriForFile(
-                        ctx, "${ctx.packageName}.fileprovider", file)
-                    startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                        setDataAndType(uri, "audio/mp4")
-                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    })
-                } catch (_: Exception) {
-                    android.widget.Toast.makeText(ctx, "Không có ứng dụng nào phát được file này", android.widget.Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton("Đóng", null).show()
     }
 
     private fun formatNumberGrouped(raw: String): String {

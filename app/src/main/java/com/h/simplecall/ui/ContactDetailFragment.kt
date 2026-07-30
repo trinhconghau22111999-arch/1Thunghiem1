@@ -107,7 +107,17 @@ class ContactDetailFragment : Fragment() {
         b.rowSeeMore.setOnClickListener { /* TODO: mở rộng thêm thông tin liên hệ */ }
         b.rowMeet.setOnClickListener { /* TODO: tích hợp Meet khi có */ }
         b.rowCallSummary.setOnClickListener { /* TODO: tóm tắt cuộc gọi (AI) khi có */ }
-        b.rowCallRecording.setOnClickListener { CallRecordingListDialog.show(this, number) }
+        // Mở thẳng app ghi âm DUY NHẤT được dùng - VOX Ghi Âm (xem CallRecordingManager.kt).
+        b.rowCallRecording.setOnClickListener {
+            val opened = com.h.simplecall.call.CallRecordingManager.openRecorderApp(requireContext())
+            if (!opened) {
+                android.widget.Toast.makeText(
+                    requireContext(),
+                    "Chưa cài ${com.h.simplecall.call.CallRecordingManager.RECORDER_APP_NAME} trên máy này",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
 
         b.btnClearLog.setOnClickListener { clearHistory(number) }
         loadHistoryAsync(number)
@@ -316,10 +326,11 @@ class ContactDetailFragment : Fragment() {
             SimpleDateFormat("d/M", Locale.getDefault()).format(Date(item.date))
 
         // TRƯỚC ĐÂY: bấm vào 1 dòng nhật ký sẽ GỌI LẠI số đó - trùng lặp với nút Gọi riêng đã có
-        // ngay phía trên (hàng "Di động"). Giờ đổi thành mở bản ghi âm CỦA ĐÚNG cuộc gọi này (so
-        // khớp theo số + thời điểm gần nhất - xem CallRecordingManager.getForCallLogEntry()).
+        // ngay phía trên (hàng "Di động"). Sau đó đổi thành mở bản ghi âm nội bộ của đúng cuộc gọi
+        // này - giờ app không còn lưu bản ghi âm nội bộ nữa nên chỉ còn cách mở thẳng VOX Ghi Âm
+        // lên để người dùng tự tìm bản ghi tương ứng trong app đó.
         rb.root.setOnClickListener {
-            CallRecordingListDialog.showForCallLogEntry(this, item.number, item.date)
+            com.h.simplecall.call.CallRecordingManager.openRecorderApp(requireContext())
         }
     }
 
