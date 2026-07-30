@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- BẮT BUỘC từ Android 11 (API 30) trở lên: nếu không khai báo trước gói ứng dụng cần
+         kiểm tra/tương tác ở đây, PackageManager.getApplicationInfo("com.vox.ghiam", ...) sẽ
+         luôn ném NameNotFoundException - báo "chưa cài" - DÙ ứng dụng đó THỰC SỰ đã được cài
+         trên máy. Đây gọi là "package visibility": hệ thống mặc định ẩn hết các app khác đi để
+         bảo vệ quyền riêng tư, trừ khi app khai báo rõ mình cần biết về gói nào. -->
+    <queries>
+        <package android:name="com.vox.ghiam" />
+    </queries>
+
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
