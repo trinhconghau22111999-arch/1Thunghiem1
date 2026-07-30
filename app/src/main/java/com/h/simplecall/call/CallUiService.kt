@@ -84,7 +84,14 @@ class CallUiService : InCallService() {
      *  - Android 12+ (S): dùng setCommunicationDevice()/clearCommunicationDevice() - API CHÍNH
      *    THỨC hiện tại để chọn thiết bị audio khi đang gọi, thay thế isSpeakerphoneOn cũ.
      *  - Android cũ hơn: dùng lại isSpeakerphoneOn (dù deprecated) vì setCommunicationDevice()
-     *    chưa tồn tại trước API 31. */
+     *    chưa tồn tại trước API 31.
+     *
+     *  LỖI ĐÃ SỬA: nhánh TẮT loa trước đây chỉ gọi clearCommunicationDevice() NẾU tự đọc lại
+     *  am.communicationDevice thấy ĐANG đúng là loa ngoài - nhưng giá trị đọc lại này có thể
+     *  CHƯA KỊP CẬP NHẬT (bất đồng bộ, nhất là khi bấm tắt ngay sau khi vừa bật) khiến điều kiện
+     *  sai và bỏ qua luôn bước tắt - đây chính là lý do "bấm tắt mà không ăn ngay". Bỏ hẳn điều
+     *  kiện, LUÔN gọi clearCommunicationDevice() khi tắt - hàm này tự no-op an toàn nếu vốn chưa
+     *  ép thiết bị nào, không cần tự kiểm tra trước. */
     fun setSpeakerOn(on: Boolean) {
         setAudioRoute(if (on) CallAudioState.ROUTE_SPEAKER else CallAudioState.ROUTE_EARPIECE)
         try {
@@ -95,10 +102,7 @@ class CallUiService : InCallService() {
                         .firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
                     if (speakerDevice != null) am.setCommunicationDevice(speakerDevice)
                 } else {
-                    // Về lại thiết bị mặc định của Telecom (tai nghe trong/tai nghe có dây/BT nếu có)
-                    if (am.communicationDevice?.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) {
-                        am.clearCommunicationDevice()
-                    }
+                    am.clearCommunicationDevice()
                 }
             } else {
                 @Suppress("DEPRECATION")
