@@ -17,6 +17,7 @@ import com.h.simplecall.InCallActivity
 import com.h.simplecall.MainActivity
 import com.h.simplecall.R
 import android.telecom.Call
+import android.telecom.CallAudioState
 import android.telecom.InCallService
 import android.telecom.VideoProfile
 
@@ -53,7 +54,31 @@ class CallUiService : InCallService() {
          *  tiếp đối tượng Call thật để gọi answer()/reject()/disconnect(), không có cách nào
          *  khác để "tìm lại" đúng Call đó từ 1 Intent broadcast đơn thuần. */
         @Volatile var activeCall: Call? = null
+
+        /** Tham chiếu tới chính InCallService này — BẮT BUỘC để đổi đường tiếng (loa ngoài/tai
+         *  nghe) vì setAudioRoute() CHỈ tồn tại trên InCallService, không có trên Call hay bất kỳ
+         *  API công khai nào khác. Trước đây InCallActivity tự gọi thẳng
+         *  AudioManager.isSpeakerphoneOn = true để bật loa - với app KHÔNG phải ứng dụng điện
+         *  thoại mặc định thì cách này còn tạm ổn, nhưng khi app đã tự quản lý cuộc gọi qua
+         *  Telecom/InCallService (đúng vai trò hiện tại), Telecom TỰ ĐIỀU KHIỂN đường tiếng của
+         *  cuộc gọi và sẽ ghi đè/bỏ qua thay đổi đặt trực tiếp qua AudioManager - bấm nút Loa
+         *  không có tác dụng thật (âm thanh vẫn ra loa trong/tai nghe như cũ). */
+        @Volatile var instance: CallUiService? = null
     }
+
+    /** Đổi đường tiếng cuộc gọi qua đúng API Telecom (CallAudioState), không qua AudioManager. */
+    fun setSpeakerOn(on: Boolean) {
+        setAudioRoute(if (on) CallAudioState.ROUTE_SPEAKER else CallAudioState.ROUTE_EARPIECE)
+    }
+
+    /** Tắt/bật mic qua đúng API Telecom (InCallService.setMuted) - AudioManager.isMicrophoneMute
+     *  cũng bị Telecom ghi đè y hệt như trường hợp loa ngoài ở trên. */
+    fun setMutedState(muted: Boolean) = setMuted(muted)
+
+    /** Đọc đúng trạng thái loa đang bật hay tắt TỪ chính Telecom (callAudioState thật), thay vì
+     *  tự giữ 1 biến boolean cục bộ dễ bị lệch nếu route bị hệ thống tự đổi (vd. khi cắm/rút tai
+     *  nghe có dây hoặc Bluetooth trong lúc đang gọi). */
+    fun isSpeakerOn(): Boolean = callAudioState?.route == CallAudioState.ROUTE_SPEAKER
 
     private val actionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -74,6 +99,7 @@ class CallUiService : InCallService() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         ensureChannels()
         val filter = IntentFilter().apply {
             addAction(ACTION_ANSWER); addAction(ACTION_REJECT); addAction(ACTION_HANGUP)
@@ -111,6 +137,7 @@ class CallUiService : InCallService() {
 
     override fun onDestroy() {
         try { unregisterReceiver(actionReceiver) } catch (_: Exception) {}
+        if (instance === this) instance = null
         super.onDestroy()
     }
 

@@ -1,6 +1,5 @@
 package com.h.simplecall
 
-import android.media.AudioManager
 import android.os.Bundle
 import android.os.SystemClock
 import android.telecom.Call
@@ -31,7 +30,6 @@ class InCallActivity : AppCompatActivity() {
     private var isClarityOn = false
     private var noiseSuppressor: android.media.audiofx.NoiseSuppressor? = null
     private var dtmfInput = StringBuilder()
-    private var audioManager: AudioManager? = null
 
     /** Lắng nghe thay đổi trạng thái cuộc gọi để cập nhật UI và đóng Activity khi kết thúc. */
     private val callCallback = object : Call.Callback() {
@@ -52,7 +50,6 @@ class InCallActivity : AppCompatActivity() {
 
         b = ActivityInCallBinding.inflate(layoutInflater)
         setContentView(b.root)
-        audioManager = getSystemService(AudioManager::class.java)
 
         val call = CallUiService.activeCall
         if (call == null) { finish(); return }
@@ -177,7 +174,12 @@ class InCallActivity : AppCompatActivity() {
         // vì chỉ đổi màu icon mờ nhạt như trước - dễ nhận biết trạng thái đang bật/tắt hơn hẳn.
         b.ivSpeaker.setOnClickListener {
             isSpeaker = !isSpeaker
-            audioManager?.isSpeakerphoneOn = isSpeaker
+            // TRƯỚC ĐÂY: audioManager?.isSpeakerphoneOn = isSpeaker - với app đã là ứng dụng
+            // điện thoại mặc định (quản lý cuộc gọi qua Telecom/InCallService), Telecom tự điều
+            // khiển đường tiếng của cuộc gọi và ghi đè/bỏ qua thay đổi đặt trực tiếp qua
+            // AudioManager - đó là lý do bấm nút Loa không có tác dụng thật. Phải gọi đúng
+            // InCallService.setAudioRoute() - xem CallUiService.setSpeakerOn().
+            com.h.simplecall.call.CallUiService.instance?.setSpeakerOn(isSpeaker)
             b.ivSpeaker.setBackgroundResource(
                 if (isSpeaker) R.drawable.bg_action_btn_active else R.drawable.bg_action_btn)
             b.ivSpeaker.setColorFilter(
@@ -187,7 +189,7 @@ class InCallActivity : AppCompatActivity() {
         // Tắt / bật mic
         b.btnMute.setOnClickListener {
             isMuted = !isMuted
-            audioManager?.isMicrophoneMute = isMuted
+            com.h.simplecall.call.CallUiService.instance?.setMutedState(isMuted)
             b.ivMute.setBackgroundResource(
                 if (isMuted) R.drawable.bg_action_btn_active else R.drawable.bg_action_btn)
             b.ivMute.setColorFilter(
