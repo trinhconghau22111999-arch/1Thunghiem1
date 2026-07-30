@@ -47,6 +47,26 @@ class DialerFragment : Fragment() {
         @Volatile var cachedRecents: List<CallLogEntry> = emptyList()
         @Volatile var recentsCacheLoaded: Boolean = false
 
+        /** Thêm NGAY 1 "bản ghi tạm" vào đầu cache "Gần đây", dùng khi 1 cuộc gọi vừa kết thúc
+         *  trên chính app này (xem InCallActivity.pushRecentEntryOptimistically()) - để danh sách
+         *  hiện luôn CUỘC GỌI VỪA XONG tức thì, không phải chờ hệ thống ghi xong vào CallLog thật
+         *  (thường mất 1-3 giây, do ContentObserver ở onResume() bên dưới chỉ kích hoạt lại SAU
+         *  khi CallLog thật sự đổi). Không đụng gì tới CallLog hệ thống - chỉ là bản sao hiển thị
+         *  tạm trong RAM; khi ContentObserver phát hiện CallLog đổi thật sự, loadRecents() sẽ tự
+         *  đọc lại và GHI ĐÈ toàn bộ cachedRecents bằng dữ liệu chính thức, nên không lo bị kẹt
+         *  sai/trùng lâu dài dù bản tạm có ước lượng không khớp 100% (vd. thời lượng làm tròn). */
+        fun pushOptimisticRecentEntry(entry: CallLogEntry) {
+            val target = entry.number.filter { it.isDigit() }.takeLast(9)
+            // Bỏ bớt bản ghi CŨ trùng số + gần thời điểm (nếu có, vd. do bấm gọi lại nhanh trong
+            // lúc bản tạm trước chưa kịp bị CallLog thật thay thế), tránh hiện 2 dòng cho 1 cuộc.
+            val withoutDupe = cachedRecents.filterNot {
+                it.number.filter(Char::isDigit).takeLast(9) == target &&
+                    kotlin.math.abs(it.date - entry.date) < 30_000L
+            }
+            cachedRecents = listOf(entry) + withoutDupe
+            recentsCacheLoaded = true
+        }
+
         private val SUB_LABELS = mapOf(
             "2" to "ABC", "3" to "DEF", "4" to "GHI",
             "5" to "JKL", "6" to "MNO", "7" to "PQRS",
