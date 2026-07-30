@@ -179,15 +179,32 @@ class InCallActivity : AppCompatActivity() {
         val hasConnected = wasAnswered && connectTimeMillis > 0L
         val durationSec = if (hasConnected)
             ((System.currentTimeMillis() - connectTimeMillis) / 1000L).coerceAtLeast(0L) else 0L
-        DialerFragment.pushOptimisticRecentEntry(
-            CallLogEntry(
-                name = callerName,
-                number = number,
-                type = type,
-                date = if (hasConnected) connectTimeMillis else System.currentTimeMillis(),
-                duration = durationSec
+        val date = if (hasConnected) connectTimeMillis else System.currentTimeMillis()
+
+        if (callerName.isNotBlank()) {
+            // Telecom đã tự gắn sẵn tên (luôn xảy ra với cuộc gọi ĐẾN, hệ thống tự tra Caller ID) —
+            // dùng luôn, không cần tra thêm gì cả.
+            DialerFragment.pushOptimisticRecentEntry(
+                CallLogEntry(name = callerName, number = number, type = type, date = date, duration = durationSec)
             )
-        )
+            return
+        }
+        // Cuộc gọi ĐI tới 1 số đã lưu trong danh bạ thường KHÔNG được Telecom tự gắn tên (khác
+        // cuộc gọi đến) — tự tra bù qua danh bạ máy (giống hệt cách queryRecents() ở DialerFragment
+        // đang bù cho CallLog thật) để dòng "Gần đây" hiện ra ngay LẬP TỨC vẫn có tên đúng, không
+        // phải đợi tới khi CallLog thật ghi xong rồi mới thấy tên. Chạy nền để không làm chậm lúc
+        // đóng màn hình gọi, xong thì đẩy lên UI qua runOnUiThread.
+        val appCtx = applicationContext
+        Thread {
+            val resolvedName = runCatching {
+                com.h.simplecall.data.ContactsRepository.lookupNameByNumber(appCtx, number)
+            }.getOrNull() ?: ""
+            runOnUiThread {
+                DialerFragment.pushOptimisticRecentEntry(
+                    CallLogEntry(name = resolvedName, number = number, type = type, date = date, duration = durationSec)
+                )
+            }
+        }.start()
     }
 
     private fun showIncoming() {
