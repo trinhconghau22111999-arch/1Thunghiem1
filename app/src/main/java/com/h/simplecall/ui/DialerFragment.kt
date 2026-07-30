@@ -84,6 +84,15 @@ class DialerFragment : Fragment() {
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     // "Phiên bản" mỗi lần gõ số, dùng để huỷ kết quả tra cứu cũ trả về trễ (gõ nhanh nhiều ký tự)
     private var searchGeneration = 0
+    // Runnable debounce đang chờ chạy searchSuggestions() thật sự (nếu có) - huỷ đi mỗi khi có
+    // thay đổi mới trước khi kịp chạy. Khi DÁN cả 1 số dài vào, addTextChangedListener vẫn có
+    // thể bắn afterTextChanged() cho từng bước thay đổi trung gian -> nếu bgExecutor (chỉ 1
+    // luồng) phải chạy NGAY truy vấn ContactsContract (LIKE '%...%', không dùng được index, quét
+    // toàn bảng danh bạ) cho mọi trạng thái trung gian, các truy vấn xếp hàng dồn cục khiến kết
+    // quả cuối cùng (số vừa dán xong) phải đợi hết các truy vấn thừa đã lỗi thời trước đó chạy
+    // xong - đây chính là nguyên nhân "check số bị chậm rất nhiều" khi dán. Debounce 150ms để chỉ
+    // thực sự truy vấn 1 lần, cho trạng thái ổn định cuối cùng.
+    private var pendingSearchRunnable: Runnable? = null
 
     // ContentObserver lắng nghe CallLog.Calls.CONTENT_URI: hệ thống ghi xong 1 cuộc gọi vào
     // CallLog (thường 1-3 giây sau khi kết thúc) thì observer này tự kích hoạt loadRecents()
@@ -761,21 +770,28 @@ class DialerFragment : Fragment() {
         b.rvRecents.visibility = View.GONE
         val myGeneration = ++searchGeneration
         val appContext = requireContext().applicationContext
-        bgExecutor.execute {
-            val list = queryContactSuggestions(appContext, raw)
-            mainHandler.post {
-                // Người dùng đã gõ thêm/xoá ký tự khác trong lúc chờ: bỏ qua kết quả trễ này
-                if (_b == null || myGeneration != searchGeneration) return@post
-                if (list.isEmpty()) {
-                    b.llSuggestionsWrap.visibility = View.GONE
-                    b.llNoMatchActions.visibility = View.VISIBLE
-                } else {
-                    suggestAdapter.update(list, raw)
-                    b.llSuggestionsWrap.visibility = View.VISIBLE
-                    b.llNoMatchActions.visibility = View.GONE
+        // Huỷ truy vấn đang chờ (nếu có) của trạng thái trung gian trước đó - chỉ trạng thái ổn
+        // định cuối cùng (sau khi dán/gõ xong 150ms không đổi thêm) mới thực sự chạy truy vấn.
+        pendingSearchRunnable?.let { mainHandler.removeCallbacks(it) }
+        val runnable = Runnable {
+            bgExecutor.execute {
+                val list = queryContactSuggestions(appContext, raw)
+                mainHandler.post {
+                    // Người dùng đã gõ thêm/xoá ký tự khác trong lúc chờ: bỏ qua kết quả trễ này
+                    if (_b == null || myGeneration != searchGeneration) return@post
+                    if (list.isEmpty()) {
+                        b.llSuggestionsWrap.visibility = View.GONE
+                        b.llNoMatchActions.visibility = View.VISIBLE
+                    } else {
+                        suggestAdapter.update(list, raw)
+                        b.llSuggestionsWrap.visibility = View.VISIBLE
+                        b.llNoMatchActions.visibility = View.GONE
+                    }
                 }
             }
         }
+        pendingSearchRunnable = runnable
+        mainHandler.postDelayed(runnable, 150)
     }
 
     private fun queryContactSuggestions(ctx: Context, raw: String): List<Contact> {
@@ -865,6 +881,7 @@ class DialerFragment : Fragment() {
 
     override fun onDestroyView() {
         toneGen?.release(); toneGen = null
+        pendingSearchRunnable?.let { mainHandler.removeCallbacks(it) }
         bgExecutor.shutdownNow()
         super.onDestroyView(); _b = null
     }
