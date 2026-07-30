@@ -3,6 +3,7 @@ package com.h.simplecall
 import android.os.Bundle
 import android.os.SystemClock
 import android.telecom.Call
+import android.telecom.CallAudioState
 import android.telecom.VideoProfile
 import android.view.View
 import android.view.WindowManager
@@ -30,6 +31,7 @@ class InCallActivity : AppCompatActivity() {
     private var isClarityOn = false
     private var noiseSuppressor: android.media.audiofx.NoiseSuppressor? = null
     private var dtmfInput = StringBuilder()
+    private var audioStateListener: ((CallAudioState) -> Unit)? = null
 
     /** Lắng nghe thay đổi trạng thái cuộc gọi để cập nhật UI và đóng Activity khi kết thúc. */
     private val callCallback = object : Call.Callback() {
@@ -59,10 +61,34 @@ class InCallActivity : AppCompatActivity() {
         applyCallState(call, call.state)
         setupActionButtons(call)
         setupDtmfDialpad(call)
+
+        // Lắng nghe CallAudioState THẬT từ Telecom (qua CallUiService) để icon Loa/Mic luôn
+        // đúng sự thật, không tự đoán "chắc là đã bật" ngay khi bấm - xem ghi chú trong
+        // CallUiService.audioStateListener.
+        CallUiService.instance?.let { svc ->
+            audioStateListener = { state ->
+                runOnUiThread {
+                    updateSpeakerIcon(state.route == CallAudioState.ROUTE_SPEAKER)
+                    updateMuteIcon(state.isMuted)
+                }
+            }
+            svc.audioStateListener = audioStateListener
+            // Đồng bộ ngay trạng thái hiện tại (không đợi lần đổi tiếp theo), phòng route đã là
+            // loa ngoài từ trước (vd. Activity bị tạo lại sau khi xoay máy/rotate).
+            svc.callAudioState?.let { state ->
+                updateSpeakerIcon(state.route == CallAudioState.ROUTE_SPEAKER)
+                updateMuteIcon(state.isMuted)
+            }
+        }
     }
 
     override fun onDestroy() {
         CallUiService.activeCall?.unregisterCallback(callCallback)
+        // Chỉ gỡ nếu ĐÚNG listener của chính Activity này đang được gắn - tránh trường hợp hiếm
+        // 1 Activity mới đã kịp đăng ký listener khác trước khi Activity cũ này onDestroy().
+        CallUiService.instance?.let { svc ->
+            if (svc.audioStateListener === audioStateListener) svc.audioStateListener = null
+        }
         try { noiseSuppressor?.release() } catch (_: Exception) {}
         super.onDestroy()
     }
@@ -151,6 +177,18 @@ class InCallActivity : AppCompatActivity() {
         b.chronometer.stop()
     }
 
+    private fun updateSpeakerIcon(on: Boolean) {
+        isSpeaker = on
+        b.ivSpeaker.setBackgroundResource(if (on) R.drawable.bg_action_btn_active else R.drawable.bg_action_btn)
+        b.ivSpeaker.setColorFilter(if (on) getColor(R.color.white) else getColor(R.color.text_primary))
+    }
+
+    private fun updateMuteIcon(muted: Boolean) {
+        isMuted = muted
+        b.ivMute.setBackgroundResource(if (muted) R.drawable.bg_action_btn_active else R.drawable.bg_action_btn)
+        b.ivMute.setColorFilter(if (muted) getColor(R.color.white) else getColor(R.color.text_primary))
+    }
+
     // ──────────────────────────────────────────────────────────────────
     // 4 nút hành động + Trả lời / Kết thúc
     // ──────────────────────────────────────────────────────────────────
@@ -172,28 +210,31 @@ class InCallActivity : AppCompatActivity() {
 
         // Loa ngoài — nền tròn đổi hẳn sang xanh dương (accent_blue) + icon trắng khi BẬT, thay
         // vì chỉ đổi màu icon mờ nhạt như trước - dễ nhận biết trạng thái đang bật/tắt hơn hẳn.
+        //
+        // LỖI ĐÃ SỬA: trước đây isSpeaker là 1 biến cờ RIÊNG của Activity, tự đảo ngược và tự vẽ
+        // icon "đã bật" NGAY khi bấm, bất kể setAudioRoute() có thực sự áp dụng được hay không -
+        // khiến icon "nói dối" khi Telecom âm thầm bỏ qua yêu cầu (vd. có thiết bị Bluetooth
+        // đang giữ quyền audio route). Giờ chỉ GỬI yêu cầu đổi route dựa trên trạng thái THẬT
+        // đang có (isSpeakerOn()), rồi CHỜ Telecom xác nhận qua onCallAudioStateChanged() (đã
+        // đăng ký ở onCreate) mới vẽ lại icon - icon luôn phản ánh đúng sự thật.
         b.ivSpeaker.setOnClickListener {
-            isSpeaker = !isSpeaker
-            // TRƯỚC ĐÂY: audioManager?.isSpeakerphoneOn = isSpeaker - với app đã là ứng dụng
-            // điện thoại mặc định (quản lý cuộc gọi qua Telecom/InCallService), Telecom tự điều
-            // khiển đường tiếng của cuộc gọi và ghi đè/bỏ qua thay đổi đặt trực tiếp qua
-            // AudioManager - đó là lý do bấm nút Loa không có tác dụng thật. Phải gọi đúng
-            // InCallService.setAudioRoute() - xem CallUiService.setSpeakerOn().
-            com.h.simplecall.call.CallUiService.instance?.setSpeakerOn(isSpeaker)
-            b.ivSpeaker.setBackgroundResource(
-                if (isSpeaker) R.drawable.bg_action_btn_active else R.drawable.bg_action_btn)
-            b.ivSpeaker.setColorFilter(
-                if (isSpeaker) getColor(R.color.white) else getColor(R.color.text_primary))
+            val svc = CallUiService.instance
+            if (svc == null) {
+                Toast.makeText(this, "Không đổi được loa ngoài lúc này, thử lại sau", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            svc.setSpeakerOn(!svc.isSpeakerOn())
         }
 
-        // Tắt / bật mic
+        // Tắt / bật mic - cùng nguyên tắc như nút Loa ở trên: dựa vào trạng thái thật, để
+        // callback vẽ lại icon thay vì tự đoán.
         b.btnMute.setOnClickListener {
-            isMuted = !isMuted
-            com.h.simplecall.call.CallUiService.instance?.setMutedState(isMuted)
-            b.ivMute.setBackgroundResource(
-                if (isMuted) R.drawable.bg_action_btn_active else R.drawable.bg_action_btn)
-            b.ivMute.setColorFilter(
-                if (isMuted) getColor(R.color.white) else getColor(R.color.text_primary))
+            val svc = CallUiService.instance
+            if (svc == null) {
+                Toast.makeText(this, "Không đổi được mic lúc này, thử lại sau", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            svc.setMutedState(!isMuted)
         }
 
         // Phím bấm DTMF

@@ -66,6 +66,18 @@ class CallUiService : InCallService() {
         @Volatile var instance: CallUiService? = null
     }
 
+    /** InCallActivity đăng ký lắng nghe ở đây để biết đường tiếng/trạng thái mic THẬT SỰ đã đổi
+     *  (Telecom xác nhận qua onCallAudioStateChanged), thay vì tự đoán "chắc là đã bật" ngay khi
+     *  bấm nút - đó là lý do trước đây nút Loa đổi màu "đã bật" dù thực tế Telecom có thể không
+     *  áp dụng được (vd. đang có thiết bị Bluetooth giữ quyền audio route), khiến người dùng
+     *  tưởng đã bật nhưng loa ngoài trên máy vẫn không kêu. */
+    @Volatile var audioStateListener: ((CallAudioState) -> Unit)? = null
+
+    override fun onCallAudioStateChanged(audioState: CallAudioState) {
+        super.onCallAudioStateChanged(audioState)
+        audioStateListener?.invoke(audioState)
+    }
+
     /** Đổi đường tiếng cuộc gọi qua đúng API Telecom (CallAudioState), không qua AudioManager. */
     fun setSpeakerOn(on: Boolean) {
         setAudioRoute(if (on) CallAudioState.ROUTE_SPEAKER else CallAudioState.ROUTE_EARPIECE)
