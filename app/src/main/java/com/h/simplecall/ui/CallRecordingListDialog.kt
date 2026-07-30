@@ -42,7 +42,12 @@ object CallRecordingListDialog {
         }
         val fmt = SimpleDateFormat("d/M/yyyy HH:mm", Locale.getDefault())
         val labels = recordings.map { rec ->
-            "${fmt.format(rec.startTimeMillis)}  •  ${formatDuration(rec.durationSeconds)}"
+            // File do app ghi âm bên thứ 3 tạo đôi khi có durationSeconds = 0 (MediaStore chưa
+            // đọc được lúc lập chỉ mục) - khi đó đọc lại thời lượng thật từ chính file bằng
+            // MediaMetadataRetriever thay vì hiện "0:00".
+            val durationSec = if (rec.durationSeconds > 0) rec.durationSeconds
+                else CallRecordingManager.readDurationSeconds(rec.filePath)
+            "${fmt.format(rec.startTimeMillis)}  •  ${formatDuration(durationSec)}"
         }.toTypedArray()
 
         AlertDialog.Builder(ctx)
@@ -201,8 +206,9 @@ object CallRecordingListDialog {
             .setMessage(R.string.recording_delete_confirm)
             .setPositiveButton(R.string.recording_delete) { _, _ ->
                 stopPlayback()
-                CallRecordingManager.deleteEntry(ctx, recording)
-                Toast.makeText(ctx, R.string.recording_deleted, Toast.LENGTH_SHORT).show()
+                val deleted = CallRecordingManager.deleteEntry(ctx, recording)
+                val msgRes = if (deleted) R.string.recording_deleted else R.string.recording_delete_failed
+                Toast.makeText(ctx, msgRes, Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton(R.string.cancel, null)
             .show()

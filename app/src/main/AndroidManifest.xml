@@ -8,6 +8,13 @@
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Cần để quét, tìm file ghi âm cuộc gọi do app ghi âm BÊN THỨ 3 tạo ra (nằm ngoài bộ nhớ
+         riêng của app này) khi hiện "Bản ghi âm cuộc gọi" - xem CallRecordingManager.
+         READ_MEDIA_AUDIO dùng cho Android 13+, READ_EXTERNAL_STORAGE cho bản cũ hơn (giới hạn
+         maxSdkVersion vì từ Android 13 quyền này đã bị thay bằng READ_MEDIA_AUDIO). -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

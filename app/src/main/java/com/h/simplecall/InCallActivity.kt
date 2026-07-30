@@ -2,6 +2,7 @@ package com.h.simplecall
 
 import android.os.Bundle
 import android.os.SystemClock
+import android.provider.CallLog
 import android.telecom.Call
 import android.telecom.CallAudioState
 import android.telecom.VideoProfile
@@ -10,7 +11,9 @@ import android.view.WindowManager
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.h.simplecall.call.CallUiService
+import com.h.simplecall.data.CallLogEntry
 import com.h.simplecall.databinding.ActivityInCallBinding
+import com.h.simplecall.ui.DialerFragment
 
 /**
  * Màn hình gọi — thiết kế y hệt giao diện gọi hệ thống Android (Google Phone):
@@ -32,6 +35,16 @@ class InCallActivity : AppCompatActivity() {
     private var noiseSuppressor: android.media.audiofx.NoiseSuppressor? = null
     private var dtmfInput = StringBuilder()
     private var audioStateListener: ((CallAudioState) -> Unit)? = null
+
+    // ── Dữ liệu để tự thêm NGAY 1 dòng "Gần đây" khi cuộc gọi này kết thúc, không đợi hệ thống
+    //    ghi xong vào CallLog thật (thường mất 1-3 giây) - xem pushRecentEntryOptimistically(). ──
+    private var callerName: String = ""
+    private var callerNumber: String = ""
+    /** null = chưa xác định được hướng cuộc gọi (chưa nhận state RINGING/DIALING nào). */
+    private var wasIncoming: Boolean? = null
+    private var wasAnswered = false
+    private var connectTimeMillis: Long = 0L
+    private var optimisticEntryPushed = false
 
     /** Lắng nghe thay đổi trạng thái cuộc gọi để cập nhật UI và đóng Activity khi kết thúc. */
     private val callCallback = object : Call.Callback() {
@@ -101,6 +114,8 @@ class InCallActivity : AppCompatActivity() {
         val details = call.details ?: return
         val rawName = details.callerDisplayName?.takeIf { it.isNotBlank() }
         val rawNumber = details.handle?.schemeSpecificPart ?: ""
+        callerName = rawName ?: ""
+        callerNumber = rawNumber
 
         if (rawName != null) {
             b.tvCallerName.text = rawName
@@ -123,15 +138,73 @@ class InCallActivity : AppCompatActivity() {
 
     private fun applyCallState(call: Call, state: Int) {
         when (state) {
-            Call.STATE_RINGING -> showIncoming()
-            Call.STATE_DIALING, Call.STATE_CONNECTING -> showDialing()
-            Call.STATE_ACTIVE  -> showActive()
+            Call.STATE_RINGING -> { if (wasIncoming == null) wasIncoming = true; showIncoming() }
+            Call.STATE_DIALING, Call.STATE_CONNECTING -> { if (wasIncoming == null) wasIncoming = false; showDialing() }
+            Call.STATE_ACTIVE  -> {
+                wasAnswered = true
+                if (connectTimeMillis == 0L) {
+                    // connectTimeMillis do hệ thống Telecom cấp - chính xác hơn System.currentTimeMillis()
+                    // gọi thủ công ở đây (có độ trễ nhỏ giữa lúc thực sự kết nối và lúc callback chạy tới).
+                    val ct = call.details?.connectTimeMillis ?: 0L
+                    connectTimeMillis = if (ct > 0L) ct else System.currentTimeMillis()
+                }
+                showActive()
+            }
             Call.STATE_HOLDING -> showHolding()
             Call.STATE_DISCONNECTED, Call.STATE_DISCONNECTING -> {
                 b.chronometer.stop()
+                pushRecentEntryOptimistically()
                 finish()
             }
         }
+    }
+
+    /** Thêm NGAY 1 dòng vào danh sách "Gần đây" (DialerFragment) ngay khi cuộc gọi này kết thúc
+     *  trên chính app - KHÔNG đợi hệ thống Telephony ghi xong vào CallLog thật (quan sát thực tế
+     *  thường mất 1-3 giây sau khi cúp máy), tránh cảm giác app "đứng hình"/chậm cập nhật ngay
+     *  sau khi vừa gọi xong. Bản ghi tạm này sẽ tự động được bản ghi CHÍNH THỨC từ CallLog thay
+     *  thế ngay sau đó (DialerFragment vẫn đang lắng nghe ContentObserver như cũ), nên không lo
+     *  sai lệch dữ liệu lâu dài - chỉ là hiển thị NGAY thay vì phải chờ. */
+    private fun pushRecentEntryOptimistically() {
+        if (optimisticEntryPushed) return
+        val number = callerNumber
+        val incoming = wasIncoming
+        if (number.isBlank() || incoming == null) return
+        optimisticEntryPushed = true
+        val type = when {
+            incoming && !wasAnswered -> CallLog.Calls.MISSED_TYPE
+            incoming -> CallLog.Calls.INCOMING_TYPE
+            else -> CallLog.Calls.OUTGOING_TYPE
+        }
+        val hasConnected = wasAnswered && connectTimeMillis > 0L
+        val durationSec = if (hasConnected)
+            ((System.currentTimeMillis() - connectTimeMillis) / 1000L).coerceAtLeast(0L) else 0L
+        val date = if (hasConnected) connectTimeMillis else System.currentTimeMillis()
+
+        if (callerName.isNotBlank()) {
+            // Telecom đã tự gắn sẵn tên (luôn xảy ra với cuộc gọi ĐẾN, hệ thống tự tra Caller ID) —
+            // dùng luôn, không cần tra thêm gì cả.
+            DialerFragment.pushOptimisticRecentEntry(
+                CallLogEntry(name = callerName, number = number, type = type, date = date, duration = durationSec)
+            )
+            return
+        }
+        // Cuộc gọi ĐI tới 1 số đã lưu trong danh bạ thường KHÔNG được Telecom tự gắn tên (khác
+        // cuộc gọi đến) — tự tra bù qua danh bạ máy (giống hệt cách queryRecents() ở DialerFragment
+        // đang bù cho CallLog thật) để dòng "Gần đây" hiện ra ngay LẬP TỨC vẫn có tên đúng, không
+        // phải đợi tới khi CallLog thật ghi xong rồi mới thấy tên. Chạy nền để không làm chậm lúc
+        // đóng màn hình gọi, xong thì đẩy lên UI qua runOnUiThread.
+        val appCtx = applicationContext
+        Thread {
+            val resolvedName = runCatching {
+                com.h.simplecall.data.ContactsRepository.lookupNameByNumber(appCtx, number)
+            }.getOrNull() ?: ""
+            runOnUiThread {
+                DialerFragment.pushOptimisticRecentEntry(
+                    CallLogEntry(name = resolvedName, number = number, type = type, date = date, duration = durationSec)
+                )
+            }
+        }.start()
     }
 
     private fun showIncoming() {
