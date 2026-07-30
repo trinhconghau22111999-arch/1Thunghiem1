@@ -259,8 +259,9 @@ class InCallActivity : AppCompatActivity() {
 
         // Ghi âm: KHÔNG còn engine ghi âm nội bộ nào - app ghi âm DUY NHẤT được dùng là
         // VOX Ghi Âm (com.vox.ghiam, xem CallRecordingManager.kt). Nếu bật "Tự động ghi âm" ở
-        // Cài đặt thì app đó đã tự được mở khi cuộc gọi bắt đầu (xem CallStateReceiver.kt); bấm
-        // nút này chỉ để mở/kéo app đó lên foreground bất cứ lúc nào trong lúc gọi.
+        // Cài đặt, VOX được lệnh ghi âm NỀN ngay khi cuộc gọi bắt đầu (xem CallStateReceiver.kt)
+        // - KHÔNG tự mở giao diện của nó lên (tránh làm gián đoạn màn gọi đang hiện). Bấm nút
+        // này là hành động THỦ CÔNG của người dùng, muốn tự mở app đó lên xem/kiểm tra.
         val autoRecordOn = com.h.simplecall.call.CallRecordingManager.isEnabled(this)
         b.tvRecordLabel.text = if (autoRecordOn) "Đang ghi âm" else getString(R.string.start_recording)
         if (autoRecordOn) {

@@ -8,8 +8,9 @@ import android.telephony.TelephonyManager
 /**
  * Nhận broadcast android.intent.action.PHONE_STATE (đăng ký trong AndroidManifest.xml) để biết
  * khi nào 1 cuộc gọi THỰC SỰ bắt đầu (OFFHOOK = đã nhấc máy/đã kết nối) và khi nào kết thúc
- * (IDLE). Khi bắt đầu, nếu người dùng đã bật "Tự động ghi âm" ở Cài đặt, mở thẳng app VOX Ghi Âm
- * lên (xem CallRecordingManager.kt) - KHÔNG còn ghi âm nội bộ, chỉ dùng đúng 1 app ngoài duy nhất.
+ * (IDLE). Khi bắt đầu, nếu người dùng đã bật "Tự động ghi âm" ở Cài đặt, gửi lệnh ghi âm NỀN cho
+ * VOX Ghi Âm qua Intent tường minh tới RecordingService (xem CallRecordingManager.kt) - KHÔNG mở
+ * giao diện của VOX lên nữa (trước đây gọi openRecorderApp() làm app VOX nhảy lên đè màn gọi).
  */
 class CallStateReceiver : BroadcastReceiver() {
 
@@ -34,10 +35,15 @@ class CallStateReceiver : BroadcastReceiver() {
             TelephonyManager.EXTRA_STATE_OFFHOOK -> {
                 if (isRecordingActive) return // đã bật rồi (vd. broadcast gửi trùng)
                 if (!CallRecordingManager.isEnabled(context)) return
+                // Gọi ĐẾN thì có ringingNumber (từ EXTRA_INCOMING_NUMBER ở trên); gọi ĐI thì
+                // dùng pendingOutgoingNumber (MainActivity.placeCall() ghi lại trước khi gọi -
+                // xem ở đó để biết vì sao không dùng được NEW_OUTGOING_CALL broadcast).
+                val number = ringingNumber ?: pendingOutgoingNumber ?: ""
                 isRecordingActive = true
-                CallRecordingManager.openRecorderApp(context)
+                CallRecordingManager.startRecording(context, number)
             }
             TelephonyManager.EXTRA_STATE_IDLE -> {
+                if (isRecordingActive) CallRecordingManager.stopRecording(context)
                 ringingNumber = null
                 pendingOutgoingNumber = null
                 isRecordingActive = false

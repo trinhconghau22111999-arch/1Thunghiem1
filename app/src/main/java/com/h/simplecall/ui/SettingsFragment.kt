@@ -12,9 +12,9 @@ import com.h.simplecall.call.CallRecordingManager
 import com.h.simplecall.databinding.FragmentSettingsBinding
 
 /** Màn Cài đặt - giống mục cài đặt của app điện thoại gốc trên máy. Có mục "Giao diện" cho phép
- *  chọn Sáng/Tối (xem ThemePrefs.kt), và mục "Ghi âm cuộc gọi" bật/tắt tự động MỞ app VOX Ghi Âm
- *  mỗi khi có cuộc gọi (xem CallRecordingManager.kt, CallStateReceiver.kt) - đây là app ghi âm
- *  DUY NHẤT được dùng, không còn cho chọn app khác hay ghi âm nội bộ nữa. */
+ *  chọn Sáng/Tối (xem ThemePrefs.kt), và mục "Ghi âm cuộc gọi" bật/tắt tự động ra lệnh cho VOX
+ *  Ghi Âm ghi âm NỀN mỗi khi có cuộc gọi (xem CallRecordingManager.kt, CallStateReceiver.kt) -
+ *  đây là app ghi âm DUY NHẤT được dùng, không còn cho chọn app khác hay ghi âm nội bộ nữa. */
 class SettingsFragment : Fragment() {
 
     private var _b: FragmentSettingsBinding? = null
