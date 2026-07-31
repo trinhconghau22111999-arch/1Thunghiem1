@@ -283,6 +283,12 @@
     </LinearLayout>
 
     <!-- ── TẦNG 2: Panel keypad NỔI ĐÈ phía dưới, nền đen mờ ── -->
+    <!-- clickable+focusable=true: BẮT BUỘC để panel này tự "ăn" mọi lượt chạm của chính nó, dù
+         chạm vào vùng trống (khoảng cách giữa các nút số, viền quanh nút tắt bàn phím...) không
+         trúng đúng 1 nút con cụ thể nào. Thiếu 2 dòng này, ViewGroup có nền màu vẫn KHÔNG tự
+         chặn chạm - Android sẽ cho chạm "xuyên qua" xuống rvRecents nằm ngay bên dưới ở đúng toạ
+         độ đó, vô tình bấm gọi đúng dòng lịch sử đang nằm dưới ngón tay. Đây chính là lỗi "chạm
+         vùng trống trên bàn phím / nút tắt bàn phím lại tự động gọi 1 số ở Gần đây". -->
     <LinearLayout
         android:id="@+id/panelKeypad"
         android:layout_width="match_parent"
@@ -290,6 +296,8 @@
         android:layout_gravity="bottom"
         android:orientation="vertical"
         android:background="@color/bg"
+        android:clickable="true"
+        android:focusable="true"
         android:elevation="8dp">
 
         <!-- Viền trên panel: mảnh và mờ hơn -->
@@ -454,10 +462,15 @@
             </FrameLayout>
 
             <!-- Cột phải: nút toggle bàn phím -->
+            <!-- clickable=true: icon thật chỉ 31dp nhưng vùng chứa rộng 66dp - không có dòng này,
+                 chạm vào viền quanh icon (không trúng đúng icon) sẽ xuyên qua panelKeypad xuống
+                 rvRecents bên dưới (xem giải thích đầy đủ ở panelKeypad phía trên). -->
             <FrameLayout
                 android:layout_width="0dp" android:layout_height="66dp"
                 android:layout_weight="1"
-                android:background="@android:color/transparent">
+                android:background="@android:color/transparent"
+                android:clickable="true"
+                android:focusable="true">
                 <ImageButton
                     android:id="@+id/btnKeypadToggle"
                     android:layout_width="31dp" android:layout_height="31dp"
