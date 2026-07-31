@@ -190,13 +190,19 @@ class ContactsDbHelper private constructor(context: Context) :
     /** Tìm các liên hệ có số chứa đúng dãy số [digits] - dùng làm phương án dự phòng khi cache
      *  RAM chưa kịp nạp (rất hiếm khi xảy ra vì app đã tự đồng bộ ngay lúc mở, xem
      *  ContactsRepository.ensureSynced). Vẫn đọc từ bảng CỦA APP, không đụng ContactsContract. */
-    fun queryByDigitsContains(digits: String): List<Contact> {
+    fun queryByDigitsContains(digits: String, startsFromBeginning: Boolean = false): List<Contact> {
         if (digits.isBlank()) return emptyList()
         val list = mutableListOf<Contact>()
+        // Nếu user gõ từ đầu số (0xxx/+84): dùng prefix match trên cột number gốc.
+        // Nếu gõ chuỗi giữa/đuôi: substring match trên norm_number (9 số cuối).
+        val (column, pattern) = if (startsFromBeginning)
+            "replace(replace(number,' ',''),'-','') LIKE ?" to "$digits%"
+        else
+            "norm_number LIKE ?" to "%$digits%"
         readableDatabase.rawQuery(
             "SELECT name, number, photo_uri, starred, contact_id, lookup_key FROM $TABLE " +
-                "WHERE norm_number LIKE ? LIMIT 50",
-            arrayOf("%$digits%")
+                "WHERE $column LIMIT 50",
+            arrayOf(pattern)
         )?.use { c ->
             while (c.moveToNext()) {
                 list.add(

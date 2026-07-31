@@ -154,7 +154,7 @@ object ContactsRepository {
         }
         if (!hasPermission(context)) return emptyList()
         return try {
-            ContactsDbHelper.get(context).queryByDigitsContains(digits)
+            ContactsDbHelper.get(context).queryByDigitsContains(digits, startsFromBeginning)
         } catch (_: Exception) {
             emptyList()
         }
