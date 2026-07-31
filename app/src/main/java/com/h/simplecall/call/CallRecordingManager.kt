@@ -67,6 +67,23 @@ object CallRecordingManager {
         false
     }
 
+    /** Quyền micro (RECORD_AUDIO) của VOX Ghi Âm - KHÔNG PHẢI quyền của app này. Quyền runtime
+     *  trên Android thuộc về TỪNG APP riêng, nên dù người dùng đã cấp quyền micro cho SimpleCall,
+     *  điều đó KHÔNG có nghĩa VOX cũng đã được cấp. Nếu VOX chưa từng được người dùng tự mở lên
+     *  và bấm "Cho phép" quyền Micro (Android không tự hỏi quyền thay cho app khác được), lệnh
+     *  ACTION_START gửi sang VOX ở [startRecording] vẫn "thành công" về mặt Intent (không ném
+     *  exception), nhưng VOX sẽ ghi ra file RỖNG/im lặng hoàn toàn - đúng hiện tượng "không ghi
+     *  được chiều nào cả". Kiểm tra quyền của MỘT PACKAGE KHÁC qua PackageManager.checkPermission
+     *  không cần bản thân app này khai báo hay giữ quyền RECORD_AUDIO nào cả - chỉ là đọc
+     *  metadata công khai của hệ thống. */
+    fun isRecorderMicPermissionGranted(ctx: Context): Boolean = try {
+        ctx.packageManager.checkPermission(
+            android.Manifest.permission.RECORD_AUDIO, RECORDER_PACKAGE
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    } catch (_: Exception) {
+        false
+    }
+
     /** Mở thẳng VOX Ghi Âm lên - chỉ dùng khi người dùng CHỦ ĐỘNG muốn xem/quản lý app đó,
      *  KHÔNG dùng cho luồng tự động ghi âm nữa. */
     fun openRecorderApp(ctx: Context): Boolean {

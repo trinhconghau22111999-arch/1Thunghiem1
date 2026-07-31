@@ -66,6 +66,24 @@ class SettingsFragment : Fragment() {
                 .show()
             return
         }
+        // Sắp BẬT tính năng, và VOX đã cài nhưng CHƯA được cấp quyền Micro (quyền runtime thuộc
+        // riêng từng app - SimpleCall không thể cấp thay cho VOX được) → cảnh báo NGAY trước khi
+        // bật, thay vì để người dùng bật xong, gọi vài cuộc, rồi mới phát hiện file ghi ra hoàn
+        // toàn im lặng ở cả 2 chiều mà không hiểu vì sao.
+        if (!CallRecordingManager.isEnabled(ctx) && !CallRecordingManager.isRecorderMicPermissionGranted(ctx)) {
+            android.app.AlertDialog.Builder(ctx)
+                .setTitle("Chưa cấp quyền Micro cho ${CallRecordingManager.RECORDER_APP_NAME}")
+                .setMessage("${CallRecordingManager.RECORDER_APP_NAME} chưa được cấp quyền Micro nên sẽ KHÔNG ghi được tiếng (cả giọng bạn lẫn đối phương), dù công tắc này đang bật.\n\nHãy mở ${CallRecordingManager.RECORDER_APP_NAME} và cho phép quyền Micro, rồi quay lại đây bật tính năng này.")
+                .setPositiveButton("Mở ${CallRecordingManager.RECORDER_APP_NAME}") { _, _ ->
+                    CallRecordingManager.openRecorderApp(ctx)
+                }
+                .setNegativeButton("Vẫn bật") { _, _ ->
+                    CallRecordingManager.setEnabled(ctx, true)
+                    refreshAutoRecordUi()
+                }
+                .show()
+            return
+        }
         CallRecordingManager.setEnabled(ctx, !CallRecordingManager.isEnabled(ctx))
         refreshAutoRecordUi()
     }
@@ -97,10 +115,11 @@ class SettingsFragment : Fragment() {
         val ctx = requireContext()
         val enabled = CallRecordingManager.isEnabled(ctx)
         b.switchAutoRecord.isChecked = enabled
-        b.tvAutoRecordSubtitle.text = if (enabled) {
-            "Đang dùng: ${CallRecordingManager.RECORDER_APP_NAME}"
-        } else {
-            "Tắt (mặc định) - dùng ${CallRecordingManager.RECORDER_APP_NAME}"
+        b.tvAutoRecordSubtitle.text = when {
+            enabled && !CallRecordingManager.isRecorderMicPermissionGranted(ctx) ->
+                "⚠️ ${CallRecordingManager.RECORDER_APP_NAME} chưa có quyền Micro nên sẽ ghi ra file im lặng. Mở ${CallRecordingManager.RECORDER_APP_NAME} và cấp quyền Micro."
+            enabled -> "Đang dùng: ${CallRecordingManager.RECORDER_APP_NAME}"
+            else -> "Tắt (mặc định) - dùng ${CallRecordingManager.RECORDER_APP_NAME}"
         }
     }
 
