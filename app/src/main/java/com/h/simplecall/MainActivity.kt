@@ -130,6 +130,13 @@ class MainActivity : AppCompatActivity() {
             val dialerKeypadAlreadyOpen = current is DialerFragment && current.isKeypadVisible()
             binding.fabDialpad.visibility =
                 if (empty && currentNavId != R.id.nav_contacts && !dialerKeypadAlreadyOpen) View.VISIBLE else View.GONE
+            // TRƯỚC ĐÂY chỉ đồng bộ lại fabDialpad ở đây, quên mất fabAddContact - hideNav() (gọi
+            // từ Chi tiết liên hệ/Cài đặt/Lịch sử...) đã ẩn nút "+" đi, nhưng KHÔNG có gì hiện
+            // lại nó khi back stack rỗng để quay về đúng tab Danh bạ - nút "+" sẽ biến mất VĨNH
+            // VIỄN cho tới khi người dùng tự chuyển sang tab khác rồi quay lại. Đồng bộ lại đúng
+            // như fabDialpad: chỉ hiện khi back stack rỗng VÀ đang ở đúng tab Danh bạ.
+            binding.fabAddContact.visibility =
+                if (empty && currentNavId == R.id.nav_contacts) View.VISIBLE else View.GONE
         }
 
         // Khi bấm back từ CallHistoryFragment (mở từ icon "i" ở Gần đây):
@@ -339,6 +346,12 @@ class MainActivity : AppCompatActivity() {
     fun hideNav() {
         binding.bottomNav.visibility   = View.GONE
         binding.fabDialpad.visibility  = View.GONE
+        // TRƯỚC ĐÂY quên ẩn fabAddContact ở đây - nút "+" (thêm liên hệ mới) chỉ có ý nghĩa ở
+        // đúng màn danh sách Danh bạ. Bất kỳ màn con nào gọi hideNav() để mở lên (Chi tiết liên
+        // hệ, Cài đặt, Lịch sử cuộc gọi...) đều nên ẩn nốt nút này đi - nếu không, nó bị bỏ sót
+        // và vẫn nổi lơ lửng trên các màn đó, bấm vào thì lại mở "Tạo liên hệ mới" ngay trong lúc
+        // đang xem chi tiết 1 liên hệ ĐÃ LƯU - không hợp logic.
+        binding.fabAddContact.visibility = View.GONE
     }
 
     fun setDialpadFabVisible(visible: Boolean) {
