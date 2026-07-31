@@ -100,15 +100,5 @@
             </intent-filter>
         </service>
 
-        <!-- Lắng nghe trạng thái cuộc gọi (đã nhấc máy / đã cúp máy) để bật/tắt ghi âm đúng lúc.
-             Xem CallStateReceiver.kt. -->
-        <receiver
-            android:name=".call.CallStateReceiver"
-            android:exported="true"
-            android:permission="android.permission.READ_PHONE_STATE">
-            <intent-filter>
-                <action android:name="android.intent.action.PHONE_STATE" />
-            </intent-filter>
-        </receiver>
     </application>
 </manifest>

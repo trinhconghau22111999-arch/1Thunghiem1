@@ -280,24 +280,10 @@ class InCallActivity : AppCompatActivity() {
             }
         }
 
-        // Ghi âm: KHÔNG còn engine ghi âm nội bộ nào - app ghi âm DUY NHẤT được dùng là
-        // VOX Ghi Âm (com.vox.ghiam, xem CallRecordingManager.kt). Nếu bật "Tự động ghi âm" ở
-        // Cài đặt, VOX được lệnh ghi âm NỀN ngay khi cuộc gọi bắt đầu (xem CallStateReceiver.kt)
-        // - KHÔNG tự mở giao diện của nó lên (tránh làm gián đoạn màn gọi đang hiện). Bấm nút
-        // này là hành động THỦ CÔNG của người dùng, muốn tự mở app đó lên xem/kiểm tra.
-        val autoRecordOn = com.h.simplecall.call.CallRecordingManager.isEnabled(this)
-        b.tvRecordLabel.text = if (autoRecordOn) "Đang ghi âm" else getString(R.string.start_recording)
-        if (autoRecordOn) {
-            b.ivRecord.setBackgroundResource(R.drawable.bg_action_btn_active)
-            b.ivRecord.setColorFilter(getColor(R.color.white))
-        }
+        // Ghi âm: tính năng đang PHÁT TRIỂN, chưa hoạt động - nút chỉ báo cho người dùng biết,
+        // không còn liên kết/mở app ghi âm ngoài nào nữa.
         b.btnRecord.setOnClickListener {
-            val opened = com.h.simplecall.call.CallRecordingManager.openRecorderApp(this)
-            if (!opened) {
-                Toast.makeText(this,
-                    "Chưa cài ${com.h.simplecall.call.CallRecordingManager.RECORDER_APP_NAME} trên máy này",
-                    Toast.LENGTH_LONG).show()
-            }
+            Toast.makeText(this, "Tính năng ghi âm đang phát triển", Toast.LENGTH_SHORT).show()
         }
 
         // "Gọi rõ ràng": khử tiếng ồn bằng NoiseSuppressor chuẩn Android. Hiệu quả tuỳ máy - nhiều

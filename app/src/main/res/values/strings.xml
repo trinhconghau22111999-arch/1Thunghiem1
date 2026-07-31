@@ -50,11 +50,6 @@
     <string name="send_sms">Gửi tin nhắn SMS</string>
     <string name="video_call_meet">Cuộc gọi video Meet</string>
     <string name="start_recording">Bắt đầu ghi âm</string>
-    <string name="settings_call_recording_section">Ghi âm cuộc gọi</string>
-    <string name="auto_record_calls">Tự động mở VOX Ghi Âm</string>
-    <string name="auto_record_calls_notice">Khi bật, VOX Ghi Âm sẽ tự ghi âm NỀN mỗi khi có cuộc gọi bắt đầu (không mở giao diện lên, không làm gián đoạn màn hình gọi). Đây là app ghi âm duy nhất được dùng - hãy tìm hiểu quy định pháp luật nơi bạn sinh sống trước khi ghi âm cuộc gọi.</string>
-    <string name="auto_speaker_when_recording">Tự động bật loa ngoài khi ghi âm</string>
-    <string name="auto_speaker_when_recording_notice">Nhiều máy đời mới chặn ghi âm micro thường trong lúc đang gọi, chỉ ghi được tiếng bạn, không có tiếng đối phương. Bật loa ngoài giúp tiếng đối phương phát ra ngoài, tăng khả năng mic bắt được cả 2 chiều - không đảm bảo 100% (tuỳ máy), và sẽ làm cuộc gọi tự chuyển sang loa ngoài mỗi khi bắt đầu ghi âm.</string>
     <string name="hold_call">Giữ</string>
     <string name="unhold_call">Bỏ giữ</string>
     <string name="call_clarity">Gọi rõ ràng</string>

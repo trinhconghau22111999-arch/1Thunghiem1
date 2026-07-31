@@ -554,9 +554,6 @@ class MainActivity : AppCompatActivity() {
             != PackageManager.PERMISSION_GRANTED) { requestPermissions(); return }
 
         val actual = number
-        // Ghi lại số vừa quay để CallStateReceiver dùng khi bắt được OFFHOOK (ghi âm cuộc gọi đi -
-        // xem CallStateReceiver.kt để biết vì sao không dùng được NEW_OUTGOING_CALL broadcast).
-        com.h.simplecall.call.CallStateReceiver.pendingOutgoingNumber = actual
 
         if (!isDefaultDialer()) {
             // Không phải default dialer → dùng màn hình gọi hệ thống (ACTION_CALL)

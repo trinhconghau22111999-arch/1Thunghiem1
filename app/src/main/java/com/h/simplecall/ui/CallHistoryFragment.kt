@@ -12,7 +12,6 @@ import androidx.fragment.app.Fragment
 import com.h.simplecall.MainActivity
 import com.h.simplecall.R
 import com.h.simplecall.call.BlockedNumbersManager
-import com.h.simplecall.call.CallRecordingManager
 import com.h.simplecall.data.CallLogEntry
 import com.h.simplecall.databinding.FragmentCallHistoryBinding
 import com.h.simplecall.databinding.ItemCallHistoryEntryBinding
@@ -232,9 +231,10 @@ class CallHistoryFragment : Fragment() {
         b.rowMeet.visibility = View.GONE
         b.rowCallSummary.visibility = View.GONE
 
-        // ── Bản ghi âm cuộc gọi: hiện danh sách bản ghi âm thật của số này (đọc qua
-        //    RecordingsProvider mới của VOX Ghi Âm) thay vì mở thẳng app VOX lên ──
-        b.rowCallRecording.setOnClickListener { showRecordingsDialog(number) }
+        // Tính năng ghi âm cuộc gọi ĐÃ GỠ BỎ khỏi app - chỉ còn báo "đang phát triển".
+        b.rowCallRecording.setOnClickListener {
+            android.widget.Toast.makeText(requireContext(), "Tính năng ghi âm đang phát triển", android.widget.Toast.LENGTH_SHORT).show()
+        }
 
         // ── Xoá nhật ký (xoá khỏi CallLog hệ thống) ──
         b.btnClearLog.setOnClickListener { clearSystemCallLog(number) }
@@ -337,12 +337,10 @@ class CallHistoryFragment : Fragment() {
         else
             SimpleDateFormat("d/M", Locale.getDefault()).format(Date(item.date))
 
-        // TRƯỚC ĐÂY: bấm vào 1 dòng nhật ký chỉ mở app VOX Ghi Âm lên, người dùng phải tự mò tìm
-        // đúng bản ghi trong đó. Giờ hiện thẳng danh sách bản ghi âm của đúng số này (đối chiếu
-        // qua mốc thời gian, xem CallRecordingManager.recordingsForNumber()). Dùng item.number
-        // (không phải biến "number" ngoài onViewCreated) vì bindEntry() là hàm cấp lớp, không
-        // đóng gói (closure) được biến cục bộ của onViewCreated.
-        rb.root.setOnClickListener { showRecordingsDialog(item.number) }
+        // Tính năng ghi âm cuộc gọi ĐÃ GỠ BỎ khỏi app - chỉ còn báo "đang phát triển".
+        rb.root.setOnClickListener {
+            android.widget.Toast.makeText(requireContext(), "Tính năng ghi âm đang phát triển", android.widget.Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun clearSystemCallLog(number: String) {
@@ -358,45 +356,6 @@ class CallHistoryFragment : Fragment() {
                 "${CallLog.Calls.NUMBER} LIKE ?", arrayOf("%$clean"))
             mainHandler.post { if (_b != null) b.llHistoryEntries.removeAllViews() }
         }
-    }
-
-    /** Hiện danh sách bản ghi âm cuộc gọi của đúng số này (đọc qua RecordingsProvider của VOX
-     *  Ghi Âm, đối chiếu theo mốc thời gian - xem CallRecordingManager.recordingsForNumber()). */
-    private fun showRecordingsDialog(number: String) {
-        val ctx = requireContext()
-        if (!CallRecordingManager.isRecorderAppInstalled(ctx)) {
-            android.widget.Toast.makeText(
-                ctx, "Chưa cài ${CallRecordingManager.RECORDER_APP_NAME} trên máy này",
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
-            return
-        }
-        val recordings = CallRecordingManager.recordingsForNumber(ctx, number)
-        if (recordings.isEmpty()) {
-            android.widget.Toast.makeText(ctx, "Chưa có bản ghi âm nào cho số này", android.widget.Toast.LENGTH_SHORT).show()
-            return
-        }
-        val fmt = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("vi", "VN"))
-        val labels = recordings.map { r ->
-            val mins = r.durationMs / 1000 / 60
-            val secs = r.durationMs / 1000 % 60
-            "${fmt.format(Date(r.timestampMs))} · %d:%02d".format(mins, secs)
-        }.toTypedArray<CharSequence>()
-        android.app.AlertDialog.Builder(ctx)
-            .setTitle("Bản ghi âm cuộc gọi")
-            .setItems(labels) { _, which ->
-                val rec = recordings[which]
-                try {
-                    startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                        setDataAndType(rec.contentUri, "audio/mp4")
-                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    })
-                } catch (_: Exception) {
-                    android.widget.Toast.makeText(ctx, "Không tìm thấy ứng dụng phát âm thanh phù hợp", android.widget.Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton("Đóng", null)
-            .show()
     }
 
     private fun formatNumberGrouped(raw: String): String {
