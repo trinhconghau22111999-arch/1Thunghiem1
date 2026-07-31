@@ -72,6 +72,10 @@ class DialerFragment : Fragment() {
     private val b get() = _b!!
     private var toneGen: ToneGenerator? = null
     private lateinit var suggestAdapter: ContactSuggestAdapter
+    // Adapter DÙNG LẠI cho rvRecents thay vì tạo mới mỗi lần renderRecents() chạy (xem lý do
+    // trong renderRecents() bên dưới - gọi RecyclerView.setAdapter() lại trong lúc người dùng
+    // đang chạm vào 1 dòng sẽ HUỶ NGANG cử chỉ chạm đó).
+    private var recentsAdapter: CallLogAdapter? = null
     private var keypadVisible = true
     private var keypadVisibleBeforeSearch = true
     private var pendingNumberToAdd: String = ""
@@ -180,20 +184,27 @@ class DialerFragment : Fragment() {
                     it.name.contains(q, ignoreCase = true)
                 }
                 b.rvRecents.visibility = if (filtered.isEmpty()) View.GONE else View.VISIBLE
-                b.rvRecents.adapter = CallLogAdapter(
-                    filtered,
-                    isDualSim = callCapableAccounts().size >= 2,
-                    onCall = { (activity as? MainActivity)?.placeCall(it) },
-                    onShowHistory = { number ->
-                        val entry = filtered.firstOrNull { it.number == number }
-                        val name = entry?.name ?: number
-                        requireActivity().supportFragmentManager.beginTransaction()
-                            .replace(R.id.fragmentContainer, CallHistoryFragment.newInstance(number, name))
-                            .addToBackStack("history")
-                            .commit()
-                        (activity as? MainActivity)?.hideNav()
-                    }
-                )
+                val existing = recentsAdapter
+                if (existing == null) {
+                    val adapter = CallLogAdapter(
+                        filtered,
+                        isDualSim = callCapableAccounts().size >= 2,
+                        onCall = { (activity as? MainActivity)?.placeCall(it) },
+                        onShowHistory = { number ->
+                            val entry = filtered.firstOrNull { it.number == number }
+                            val name = entry?.name ?: number
+                            requireActivity().supportFragmentManager.beginTransaction()
+                                .replace(R.id.fragmentContainer, CallHistoryFragment.newInstance(number, name))
+                                .addToBackStack("history")
+                                .commit()
+                            (activity as? MainActivity)?.hideNav()
+                        }
+                    )
+                    recentsAdapter = adapter
+                    b.rvRecents.adapter = adapter
+                } else {
+                    existing.updateItems(filtered)
+                }
             }
         })
         b.tabAll.setOnClickListener { selectTab(missed = false) }
@@ -651,20 +662,32 @@ class DialerFragment : Fragment() {
         else allRecentEntries
         val isEnteringNumber = b.etNumber.text.isNotEmpty()
         b.rvRecents.visibility = if (isEnteringNumber || entries.isEmpty()) View.GONE else View.VISIBLE
-        b.rvRecents.adapter = CallLogAdapter(
-            entries,
-            isDualSim = isDualSim,
-            onCall = { (activity as? MainActivity)?.placeCall(it) },
-            onShowHistory = { number ->
-                val entry = entries.firstOrNull { it.number == number }
-                val name = entry?.name ?: number
-                requireActivity().supportFragmentManager.beginTransaction()
-                    .replace(R.id.fragmentContainer, CallHistoryFragment.newInstance(number, name))
-                    .addToBackStack("history")
-                    .commit()
-                (activity as? MainActivity)?.hideNav()
-            }
-        )
+        val onCall: (String) -> Unit = { (activity as? MainActivity)?.placeCall(it) }
+        val onShowHistory: (String) -> Unit = { number ->
+            val entry = entries.firstOrNull { it.number == number }
+            val name = entry?.name ?: number
+            requireActivity().supportFragmentManager.beginTransaction()
+                .replace(R.id.fragmentContainer, CallHistoryFragment.newInstance(number, name))
+                .addToBackStack("history")
+                .commit()
+            (activity as? MainActivity)?.hideNav()
+        }
+        // TRƯỚC ĐÂY: mỗi lần renderRecents() chạy (vd. loadRecents() đồng bộ lại ở nền sau khi có
+        // cuộc gọi mới, hoặc đổi tab Tất cả/Nhỡ) đều tạo CallLogAdapter MỚI rồi gán thẳng vào
+        // b.rvRecents.adapter. Gọi RecyclerView.setAdapter() trong lúc ngón tay người dùng ĐANG
+        // CHẠM vào 1 dòng sẽ khiến framework HUỶ NGANG (cancel) cử chỉ chạm đang diễn ra - dòng đó
+        // "giật" một cái như đang vuốt/trượt nhưng onClick không bao giờ được gọi - đúng lỗi
+        // "bấm vào số để gọi ở Gần đây bị giật, không gọi". Giờ chỉ tạo adapter 1 LẦN DUY NHẤT,
+        // các lần sau tái sử dụng adapter cũ qua updateItems() (đã có sẵn DiffUtil, không tạo
+        // view holder mới, không huỷ cử chỉ chạm đang diễn ra).
+        val existing = recentsAdapter
+        if (existing == null) {
+            val adapter = CallLogAdapter(entries, isDualSim = isDualSim, onCall = onCall, onShowHistory = onShowHistory)
+            recentsAdapter = adapter
+            b.rvRecents.adapter = adapter
+        } else {
+            existing.updateItems(entries)
+        }
     }
 
     private fun selectTab(missed: Boolean) {
@@ -795,46 +818,37 @@ class DialerFragment : Fragment() {
     }
 
     private fun queryContactSuggestions(ctx: Context, raw: String): List<Contact> {
-        // Số đã gõ/dán gần như ĐỦ (>= 8 chữ số, gần bằng độ dài số di động VN 10 số): dùng
-        // PhoneLookup - bảng tra cứu RIÊNG mà chính Android dựng sẵn có index, tự chuẩn hoá định
-        // dạng số (bỏ dấu cách/gạch ngang/mã vùng...) để so khớp NHANH, không cần quét toàn bộ dữ
-        // liệu danh bạ. TRƯỚC ĐÂY luôn dùng "NUMBER LIKE '%...%'" cho MỌI độ dài - dấu % ở ĐẦU
-        // khiến SQLite không tận dụng được index nào, buộc phải quét tuần tự toàn bộ bảng số điện
-        // thoại mỗi lần gọi - với máy có nhiều liên hệ, đây chính là nguyên nhân "khựng lại rất
-        // lâu" khi dán đủ 1 số 10 chữ số, không phải chỉ do bị gọi lặp lại nhiều lần (đã sửa ở
-        // debounce trước, nhưng bản thân 1 lần truy vấn LIKE vẫn chậm với danh bạ lớn).
-        if (raw.length >= 8) {
-            val list = mutableListOf<Contact>()
-            try {
-                val uri = android.net.Uri.withAppendedPath(
-                    ContactsContract.PhoneLookup.CONTENT_FILTER_URI, android.net.Uri.encode(raw))
-                ctx.contentResolver.query(uri,
-                    arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME, ContactsContract.PhoneLookup.NUMBER),
-                    null, null, null)?.use { cur ->
-                    val iName = cur.getColumnIndex(ContactsContract.PhoneLookup.DISPLAY_NAME)
-                    val iNum  = cur.getColumnIndex(ContactsContract.PhoneLookup.NUMBER)
-                    while (cur.moveToNext()) {
-                        list.add(Contact(cur.getString(iName) ?: "", cur.getString(iNum) ?: raw))
-                    }
-                }
-            } catch (_: Exception) {}
-            if (list.isNotEmpty()) return list
-            // PhoneLookup không khớp được (số lạ, chưa lưu...) - vẫn thử lại kiểu LIKE cũ bên
-            // dưới để không bỏ sót trường hợp PhoneLookup không nhận diện đúng định dạng.
+        // Danh bạ đã được ĐỒNG BỘ & LƯU SẴN trong bộ nhớ qua ContactsRepository (nạp 1 lần khi
+        // người dùng từng mở tab Danh bạ, giữ cache suốt phiên chạy app - xem ContactsRepository).
+        // Nếu cache này đã có, so khớp NGAY trên List đã có sẵn trong RAM - nhanh gần như tức
+        // thời (micro giây) bất kể danh bạ bao nhiêu số, vì không cần gọi sang tiến trình
+        // ContactsProvider của hệ thống nữa (mỗi lần gọi sang đó luôn tốn phí IPC, và nếu phải
+        // quét toàn bảng như cách làm CŨ thì tốn tới VÀI GIÂY với danh bạ lớn - đúng lỗi "dán 10
+        // số vào check còn chậm hơn bấm từng số", vì bấm từng số còn có PhoneLookup đỡ 1 phần,
+        // còn rơi vào trường hợp PhoneLookup không khớp thì lại tụt về quét toàn bảng rất chậm).
+        val cached = com.h.simplecall.data.ContactsRepository.peek()
+        if (cached != null) {
+            val digitsRaw = raw.filter { it.isDigit() }
+            if (digitsRaw.isEmpty()) return emptyList()
+            return cached.asSequence()
+                .filter { it.number.isNotBlank() && it.number.filter { d -> d.isDigit() }.contains(digitsRaw) }
+                .distinctBy { it.name to it.number }
+                .toList()
         }
+        // Cache CHƯA có (người dùng chưa từng mở tab Danh bạ trong phiên chạy này) - tra trực
+        // tiếp bằng PhoneLookup, bảng tra cứu số điện thoại RIÊNG có index sẵn của hệ thống, KHÔNG
+        // quét toàn bộ bảng danh bạ như "NUMBER LIKE '%...%'" cách làm cũ.
         val list = mutableListOf<Contact>()
         try {
-            val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
-            val cur: Cursor? = ctx.contentResolver.query(uri,
-                arrayOf(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-                    ContactsContract.CommonDataKinds.Phone.NUMBER),
-                "${ContactsContract.CommonDataKinds.Phone.NUMBER} LIKE ?",
-                arrayOf("%$raw%"), null)
-            cur?.use {
-                val iName = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-                val iNum  = it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                while (it.moveToNext()) {
-                    list.add(Contact(it.getString(iName) ?: "", it.getString(iNum) ?: ""))
+            val uri = android.net.Uri.withAppendedPath(
+                ContactsContract.PhoneLookup.CONTENT_FILTER_URI, android.net.Uri.encode(raw))
+            ctx.contentResolver.query(uri,
+                arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME, ContactsContract.PhoneLookup.NUMBER),
+                null, null, null)?.use { cur ->
+                val iName = cur.getColumnIndex(ContactsContract.PhoneLookup.DISPLAY_NAME)
+                val iNum  = cur.getColumnIndex(ContactsContract.PhoneLookup.NUMBER)
+                while (cur.moveToNext()) {
+                    list.add(Contact(cur.getString(iName) ?: "", cur.getString(iNum) ?: raw))
                 }
             }
         } catch (_: Exception) {}

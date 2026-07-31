@@ -97,16 +97,39 @@ class InCallActivity : AppCompatActivity() {
     // Hiển thị thông tin người gọi
     // ──────────────────────────────────────────────────────────────────
 
+    /** Với cuộc gọi ĐẾN, hệ thống Android tự tra caller ID nên details.callerDisplayName có sẵn.
+     *  Với cuộc gọi ĐI (kể cả gọi từ tab Danh bạ tới 1 số đã lưu tên) - Telecom KHÔNG tự điền
+     *  trường này (xem giải thích trong ContactsRepository.lookupNameByNumber), nên trước đây rơi
+     *  thẳng vào nhánh "else" và chỉ hiện số, dù số đó rõ ràng đã có tên lưu trong danh bạ máy.
+     *  Giờ khi callerDisplayName trống, tự tra thêm bằng ContactsRepository.lookupNameByNumber
+     *  (PhoneLookup có index, tra rất nhanh) trên luồng nền rồi cập nhật UI nếu tìm thấy tên. */
     private fun bindCallInfo(call: Call) {
         val details = call.details ?: return
         val rawName = details.callerDisplayName?.takeIf { it.isNotBlank() }
         val rawNumber = details.handle?.schemeSpecificPart ?: ""
 
         if (rawName != null) {
-            b.tvCallerName.text = rawName
+            showCallerName(rawName, rawNumber)
+        } else if (rawNumber.isNotBlank()) {
+            showCallerName(null, rawNumber) // hiện số ngay lập tức, không đợi tra danh bạ
+            Thread {
+                val looked = com.h.simplecall.data.ContactsRepository
+                    .lookupNameByNumber(applicationContext, rawNumber)
+                if (!looked.isNullOrBlank()) {
+                    runOnUiThread { showCallerName(looked, rawNumber) }
+                }
+            }.start()
+        } else {
+            showCallerName(null, "")
+        }
+    }
+
+    private fun showCallerName(name: String?, rawNumber: String) {
+        if (name != null) {
+            b.tvCallerName.text = name
             b.tvCallerNumber.text = rawNumber
             b.tvCallerNumber.visibility = View.VISIBLE
-            b.tvAvatarLetter.text = rawName.take(1).uppercase()
+            b.tvAvatarLetter.text = name.take(1).uppercase()
             b.tvAvatarLetter.visibility = View.VISIBLE
             b.ivAvatar.visibility = View.GONE
         } else {
