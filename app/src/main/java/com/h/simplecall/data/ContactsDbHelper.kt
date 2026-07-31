@@ -227,6 +227,13 @@ data class ContactRow(
     val starred: Boolean
 )
 
+/** Biên dịch 1 LẦN DUY NHẤT khi class được nạp, dùng lại cho mọi lần gọi [firstLetterKey] -
+ *  trước đây Regex bị biên dịch MỚI mỗi lần hàm này chạy (gọi ~2 lần/liên hệ: 1 lần lúc sắp xếp
+ *  trong ContactsRepository, 1 lần lúc nhóm chữ cái trong ContactsAdapter) - với danh bạ vài
+ *  nghìn số, riêng việc biên dịch Regex lặp lại đã cộng dồn thành độ trễ đáng kể, góp phần vào
+ *  cảm giác "tra cứu danh bạ chậm". */
+private val DIACRITIC_MARK_REGEX = Regex("\\p{InCombiningDiacriticalMarks}+")
+
 /** Lấy chữ cái đầu (đã bỏ dấu, in hoa) của tên để sắp xếp/phân nhóm danh bạ. Trả về "#" cho
  *  tên bắt đầu bằng ký tự không phải chữ cái Latin/tiếng Việt.
  *  Đã chuyển từ ContactsAdapter.kt (ui layer) vào đây để ContactsRepository (data layer) có thể
@@ -239,7 +246,7 @@ fun firstLetterKey(name: String): String {
     val upper = first.uppercaseChar()
     if (upper == 'Đ') return "Đ"
     val base = java.text.Normalizer.normalize(upper.toString(), java.text.Normalizer.Form.NFD)
-        .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+        .replace(DIACRITIC_MARK_REGEX, "")
     return if (base.isNotEmpty() && base[0] in 'A'..'Z') base[0].toString() else "#"
 }
 

@@ -38,6 +38,25 @@ class ContactDetailFragment : Fragment() {
     private val b get() = _b!!
     private var currentEntries: List<CallLogEntry> = emptyList()
 
+    /** Đánh dấu vừa mở màn sửa/tạo liên hệ HỆ THỐNG (ACTION_EDIT/ACTION_INSERT) - 2 Intent này
+     *  không trả về Activity Result đáng tin cậy (nhiều ROM/launcher trả RESULT_CANCELED dù
+     *  người dùng đã lưu), nên không thể chỉ dựa vào registerForActivityResult() để biết có nên
+     *  invalidate cache hay không. Thay vào đó: cứ hễ MỞ màn sửa/tạo là bật cờ này lên, rồi
+     *  invalidate() ngay ở onResume() kế tiếp - đó chính là lúc chắc chắn người dùng đã quay lại
+     *  từ màn hệ thống đó (dù lưu hay huỷ), an toàn hơn là bỏ sót cache cũ. */
+    private var pendingContactChange = false
+
+    override fun onResume() {
+        super.onResume()
+        if (pendingContactChange) {
+            pendingContactChange = false
+            // Bản sao lưu danh bạ của app có thể đã lỗi thời sau khi người dùng sửa/tạo liên hệ
+            // ở màn hệ thống - lần đọc kế tiếp (getContacts/searchContacts) phải tự đồng bộ lại
+            // (chỉ chênh lệch, rất nhanh) thay vì tiếp tục trả về cache cũ.
+            com.h.simplecall.data.ContactsRepository.invalidate()
+        }
+    }
+
     // Room không cho phép query trên main thread -> luôn đọc/ghi DB lịch sử ở nền.
     private val bgExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -150,6 +169,7 @@ class ContactDetailFragment : Fragment() {
     private fun openContactEditor(number: String) {
         val contactUri = lookupContactUri(number)
         try {
+            pendingContactChange = true
             if (contactUri != null) {
                 startActivity(android.content.Intent(android.content.Intent.ACTION_EDIT)
                     .setDataAndType(contactUri, ContactsContract.Contacts.CONTENT_ITEM_TYPE))
@@ -158,6 +178,7 @@ class ContactDetailFragment : Fragment() {
                     .putExtra(ContactsContract.Intents.Insert.PHONE, number))
             }
         } catch (_: Exception) {
+            pendingContactChange = false
             android.widget.Toast.makeText(requireContext(), "Không thể mở màn hình sửa liên hệ", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
@@ -203,6 +224,9 @@ class ContactDetailFragment : Fragment() {
                 bgExecutor.execute {
                     try { appContext.contentResolver.delete(contactUri, null, null) }
                     catch (e: Exception) { android.util.Log.e("ContactDetailFragment", "Xoá liên hệ thất bại", e) }
+                    // Không đi qua Activity hệ thống nào (delete() gọi thẳng ContentResolver) nên
+                    // không thể chờ onResume() như openContactEditor() - invalidate ngay tại đây.
+                    com.h.simplecall.data.ContactsRepository.invalidate()
                     mainHandler.post {
                         if (_b == null || !isAdded) return@post
                         requireActivity().onBackPressedDispatcher.onBackPressed()

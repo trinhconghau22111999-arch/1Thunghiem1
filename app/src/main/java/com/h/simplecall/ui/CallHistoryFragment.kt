@@ -40,17 +40,33 @@ class CallHistoryFragment : Fragment() {
     private val bgExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
+    /** Đánh dấu vừa mở màn sửa/tạo liên hệ HỆ THỐNG (ACTION_EDIT/ACTION_INSERT) - xem giải thích
+     *  chi tiết ở ContactDetailFragment.pendingContactChange. Dùng chung 1 cờ cho cả 3 điểm mở
+     *  màn hệ thống trong file này (nút Sửa, "Tạo liên hệ mới", và bước ACTION_EDIT sau khi chọn
+     *  xong ở pickContactLauncher). */
+    private var pendingContactChange = false
+
+    override fun onResume() {
+        super.onResume()
+        if (pendingContactChange) {
+            pendingContactChange = false
+            com.h.simplecall.data.ContactsRepository.invalidate()
+        }
+    }
+
     private val pickContactLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.PickContact()
     ) { contactUri ->
         if (contactUri == null) return@registerForActivityResult
         try {
+            pendingContactChange = true
             startActivity(android.content.Intent(android.content.Intent.ACTION_EDIT).apply {
                 setDataAndType(contactUri, ContactsContract.Contacts.CONTENT_ITEM_TYPE)
                 putExtra(ContactsContract.Intents.Insert.PHONE, pendingNumberForPick)
                 putExtra("finishActivityOnSaveCompleted", true)
             })
         } catch (_: Exception) {
+            pendingContactChange = false
             android.widget.Toast.makeText(requireContext(), "Không thể mở màn hình sửa liên hệ", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
@@ -94,9 +110,11 @@ class CallHistoryFragment : Fragment() {
             pendingNumberForPick = number
             b.rowCreateContact.setOnClickListener {
                 try {
+                    pendingContactChange = true
                     startActivity(android.content.Intent(android.content.Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)
                         .putExtra(ContactsContract.Intents.Insert.PHONE, number))
                 } catch (_: Exception) {
+                    pendingContactChange = false
                     android.widget.Toast.makeText(requireContext(), "Không tìm thấy ứng dụng để tạo liên hệ", android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
@@ -140,6 +158,7 @@ class CallHistoryFragment : Fragment() {
             // ContactsRepository.getContactUri() (tự rơi về PhoneLookup nếu số chưa kịp đồng bộ).
             val contactUri = com.h.simplecall.data.ContactsRepository.getContactUri(ctx, number)
             try {
+                pendingContactChange = true
                 if (contactUri != null) {
                     startActivity(android.content.Intent(android.content.Intent.ACTION_EDIT).apply {
                         setDataAndType(contactUri, ContactsContract.Contacts.CONTENT_ITEM_TYPE)
@@ -150,6 +169,7 @@ class CallHistoryFragment : Fragment() {
                     })
                 }
             } catch (_: Exception) {
+                pendingContactChange = false
                 android.widget.Toast.makeText(ctx, "Không thể mở màn sửa liên hệ", android.widget.Toast.LENGTH_SHORT).show()
             }
         }

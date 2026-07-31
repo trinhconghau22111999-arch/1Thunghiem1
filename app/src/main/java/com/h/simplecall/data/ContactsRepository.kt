@@ -35,7 +35,17 @@ object ContactsRepository {
 
     @Volatile private var cache: List<Contact>? = null
     @Volatile private var syncedThisProcess = false
-    private val mutex = Mutex()
+
+    /** Chỉ bảo vệ THAO TÁC NHANH trên cache trong RAM (đọc/ghi biến [cache]) - KHÔNG bao giờ
+     *  được giữ trong lúc làm việc IO nặng (query ContactsProvider, ghi SQLite), để không chặn
+     *  các coroutine khác chỉ cần ĐỌC cache trong lúc 1 coroutine khác đang đồng bộ. */
+    private val cacheMutex = Mutex()
+
+    /** Riêng cho quá trình đồng bộ (có thể mất vài giây nếu danh bạ lớn/lần đầu) - tách khỏi
+     *  [cacheMutex] để KHÔNG chặn các lệnh đọc cache khác trong lúc đồng bộ đang chạy. Chỉ cần
+     *  đảm bảo tối đa 1 lần đồng bộ chạy cùng lúc (2 coroutine cùng gọi ensureSynced() lúc app
+     *  vừa mở sẽ chờ nhau ở đây thay vì cả 2 cùng quét trùng danh bạ). */
+    private val syncMutex = Mutex()
 
     /** Co cache san hay chua - dung de quyet dinh co can hien loading hay khong. */
     fun peek(): List<Contact>? = cache
@@ -47,9 +57,12 @@ object ContactsRepository {
     suspend fun getContacts(context: Context): List<Contact> {
         cache?.let { return it }
         if (!hasPermission(context)) return emptyList()
-        return mutex.withLock {
+        // Đồng bộ (có thể chậm) chạy TRƯỚC và NGOÀI cacheMutex - không giữ cacheMutex trong lúc
+        // chờ đồng bộ xong, để những coroutine khác chỉ muốn ĐỌC cache (không cần đồng bộ) không
+        // bị kẹt lại theo.
+        ensureSynced(context)
+        return cacheMutex.withLock {
             cache?.let { return@withLock it }
-            ensureSynced(context)
             ContactsDbHelper.get(context).queryAll()
                 .sortedBy { if (firstLetterKey(it.name) == "#") 1 else 0 }
                 .also { cache = it }
@@ -65,12 +78,20 @@ object ContactsRepository {
         getContacts(context)
     }
 
+    /** LỖI ĐÃ SỬA: trước đây withContext(Dispatchers.IO) nằm BÊN TRONG mutex.withLock dùng
+     *  chung với cacheMutex - nghĩa là suốt thời gian fullSync/incrementalSync chạy (có thể vài
+     *  giây với danh bạ lớn), MỌI coroutine khác chỉ muốn ĐỌC cache (khả năng cao đã có sẵn)
+     *  cũng bị chặn theo vì cùng tranh 1 lock. Giờ dùng [syncMutex] riêng: lock này chỉ ảnh
+     *  hưởng các coroutine CÙNG cần đồng bộ (đúng, cần chờ nhau để không quét trùng), không đụng
+     *  chạm gì tới [cacheMutex] ở [getContacts]. */
     private suspend fun ensureSynced(context: Context) {
-        // QUAN TRỌNG: kiểm tra syncedThisProcess PHẢI nằm bên TRONG mutex để tránh race condition.
-        // Nếu check bên ngoài: 2 coroutine cùng thấy false -> cùng vào mutex -> cùng chạy fullSync
-        // song song -> tranh nhau ghi DB. Check bên trong mutex: coroutine thứ 2 vào được mutex
-        // THÌ cái đầu đã xong và set cờ = true -> cái thứ 2 return sớm, không chạy lại.
-        mutex.withLock {
+        // Kiểm tra NGOÀI lock trước để trả sớm cho đường đi thường (đã đồng bộ rồi) mà không cần
+        // xếp hàng chờ syncMutex - vẫn AN TOÀN vì kiểm tra lại LẦN NỮA bên trong lock bên dưới
+        // (double-checked locking): nếu 2 coroutine cùng thấy false ở đây, chỉ 1 trong 2 vào
+        // được syncMutex trước, chạy xong set cờ = true, coroutine còn lại vào sau thấy đã true
+        // thì return sớm ngay, không chạy lại.
+        if (syncedThisProcess) return
+        syncMutex.withLock {
             if (syncedThisProcess) return@withLock
             withContext(Dispatchers.IO) {
                 val db = ContactsDbHelper.get(context)
