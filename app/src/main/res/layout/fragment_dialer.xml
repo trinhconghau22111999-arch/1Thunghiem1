@@ -225,7 +225,7 @@
             android:paddingStart="20dp" android:paddingEnd="20dp"
             android:paddingTop="14dp" android:paddingBottom="14dp">
             <ImageView android:layout_width="24dp" android:layout_height="24dp"
-                android:src="@drawable/ic_add" app:tint="@color/white" tools:ignore="MissingClass"/>
+                android:src="@drawable/ic_add" app:tint="@color/text_primary" tools:ignore="MissingClass"/>
             <TextView android:layout_width="0dp" android:layout_height="wrap_content"
                 android:layout_weight="1" android:layout_marginStart="24dp"
                 android:text="@string/create_new_contact"
@@ -241,7 +241,7 @@
             android:paddingStart="20dp" android:paddingEnd="20dp"
             android:paddingTop="14dp" android:paddingBottom="14dp">
             <ImageView android:layout_width="24dp" android:layout_height="24dp"
-                android:src="@drawable/ic_person_add" app:tint="@color/white" tools:ignore="MissingClass"/>
+                android:src="@drawable/ic_person_add" app:tint="@color/text_primary" tools:ignore="MissingClass"/>
             <TextView android:layout_width="0dp" android:layout_height="wrap_content"
                 android:layout_weight="1" android:layout_marginStart="24dp"
                 android:text="@string/add_to_existing_contact"
@@ -258,7 +258,7 @@
             android:paddingStart="20dp" android:paddingEnd="20dp"
             android:paddingTop="14dp" android:paddingBottom="14dp">
             <ImageView android:layout_width="24dp" android:layout_height="24dp"
-                android:src="@drawable/ic_message_outline" app:tint="@color/white" tools:ignore="MissingClass"/>
+                android:src="@drawable/ic_message_outline" app:tint="@color/text_primary" tools:ignore="MissingClass"/>
             <TextView android:layout_width="0dp" android:layout_height="wrap_content"
                 android:layout_weight="1" android:layout_marginStart="24dp"
                 android:text="@string/send_sms"
@@ -274,7 +274,7 @@
             android:paddingStart="20dp" android:paddingEnd="20dp"
             android:paddingTop="14dp" android:paddingBottom="14dp">
             <ImageView android:layout_width="24dp" android:layout_height="24dp"
-                android:src="@drawable/ic_video_call" app:tint="@color/white" tools:ignore="MissingClass"/>
+                android:src="@drawable/ic_video_call" app:tint="@color/text_primary" tools:ignore="MissingClass"/>
             <TextView android:layout_width="0dp" android:layout_height="wrap_content"
                 android:layout_weight="1" android:layout_marginStart="24dp"
                 android:text="@string/video_call_meet"
