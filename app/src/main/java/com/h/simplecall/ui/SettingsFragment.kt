@@ -48,6 +48,10 @@ class SettingsFragment : Fragment() {
         refreshAutoRecordUi()
         b.rowAutoRecord.setOnClickListener { toggleAutoRecord() }
         b.switchAutoRecord.setOnClickListener { toggleAutoRecord() }
+
+        refreshAutoSpeakerUi()
+        b.rowAutoSpeaker.setOnClickListener { toggleAutoSpeaker() }
+        b.switchAutoSpeaker.setOnClickListener { toggleAutoSpeaker() }
     }
 
     /** Bật/tắt "tự động mở VOX Ghi Âm khi có cuộc gọi" - KHÔNG còn cho chọn app khác, chỉ 1
@@ -64,6 +68,21 @@ class SettingsFragment : Fragment() {
         }
         CallRecordingManager.setEnabled(ctx, !CallRecordingManager.isEnabled(ctx))
         refreshAutoRecordUi()
+    }
+
+    /** Bật/tắt "tự động bật loa ngoài khi bắt đầu ghi âm" - chỉ nên bật khi ghi âm không ra
+     *  tiếng đối phương do máy chặn VOICE_CALL/VOICE_COMMUNICATION (xem CallStateReceiver.kt). */
+    private fun toggleAutoSpeaker() {
+        val ctx = requireContext()
+        CallRecordingManager.setAutoSpeakerEnabled(ctx, !CallRecordingManager.isAutoSpeakerEnabled(ctx))
+        refreshAutoSpeakerUi()
+    }
+
+    private fun refreshAutoSpeakerUi() {
+        if (_b == null || !isAdded) return
+        val enabled = CallRecordingManager.isAutoSpeakerEnabled(requireContext())
+        b.switchAutoSpeaker.isChecked = enabled
+        b.tvAutoSpeakerSubtitle.text = if (enabled) "Đang bật" else "Đang tắt (mặc định)"
     }
 
     private fun refreshDarkModeUi() {

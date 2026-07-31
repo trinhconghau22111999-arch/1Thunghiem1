@@ -104,4 +104,39 @@
         android:textSize="12sp" android:textColor="@color/text_secondary"
         android:lineSpacingExtra="2dp" />
 
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical"
+        android:background="@color/bg_surface"
+        android:paddingStart="24dp" android:paddingEnd="20dp"
+        android:paddingTop="16dp" android:paddingBottom="16dp"
+        android:layout_marginTop="12dp"
+        android:clickable="true" android:focusable="true"
+        android:id="@+id/rowAutoSpeaker">
+        <LinearLayout
+            android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:orientation="vertical">
+            <TextView
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="@string/auto_speaker_when_recording"
+                android:textSize="16sp" android:textColor="@color/text_primary" />
+            <TextView
+                android:id="@+id/tvAutoSpeakerSubtitle"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textSize="13sp" android:textColor="@color/text_secondary" />
+        </LinearLayout>
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switchAutoSpeaker"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:clickable="false" android:focusable="false" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginStart="24dp" android:layout_marginEnd="20dp" android:layout_marginTop="8dp"
+        android:text="@string/auto_speaker_when_recording_notice"
+        android:textSize="12sp" android:textColor="@color/text_secondary"
+        android:lineSpacingExtra="2dp" />
+
 </LinearLayout>

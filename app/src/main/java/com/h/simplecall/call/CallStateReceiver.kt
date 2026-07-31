@@ -11,6 +11,11 @@ import android.telephony.TelephonyManager
  * (IDLE). Khi bắt đầu, nếu người dùng đã bật "Tự động ghi âm" ở Cài đặt, gửi lệnh ghi âm NỀN cho
  * VOX Ghi Âm qua Intent tường minh tới RecordingService (xem CallRecordingManager.kt) - KHÔNG mở
  * giao diện của VOX lên nữa (trước đây gọi openRecorderApp() làm app VOX nhảy lên đè màn gọi).
+ *
+ * Nếu người dùng CÒN bật thêm "Tự động bật loa ngoài khi ghi âm" (mặc định TẮT, xem
+ * SettingsFragment.kt), cũng tự chuyển cuộc gọi sang loa ngoài ngay lúc này - vì nhiều máy chặn
+ * ghi âm micro thường lúc đang gọi (chỉ ghi được tiếng người dùng, không có tiếng đối phương);
+ * bật loa ngoài giúp tiếng đối phương phát ra ngoài, tăng khả năng mic bắt được cả 2 chiều.
  */
 class CallStateReceiver : BroadcastReceiver() {
 
@@ -41,6 +46,12 @@ class CallStateReceiver : BroadcastReceiver() {
                 val number = ringingNumber ?: pendingOutgoingNumber ?: ""
                 isRecordingActive = true
                 CallRecordingManager.startRecording(context, number)
+                if (CallRecordingManager.isAutoSpeakerEnabled(context)) {
+                    // Instance của InCallService chỉ tồn tại khi có cuộc gọi (đúng lúc này) -
+                    // xem CallUiService.setSpeakerOn() để biết vì sao KHÔNG dùng AudioManager
+                    // trực tiếp ở đây (bị Telecom ghi đè, không có tác dụng thật).
+                    CallUiService.instance?.setSpeakerOn(true)
+                }
             }
             TelephonyManager.EXTRA_STATE_IDLE -> {
                 if (isRecordingActive) CallRecordingManager.stopRecording(context)

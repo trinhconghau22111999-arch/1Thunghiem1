@@ -38,6 +38,7 @@ object CallRecordingManager {
 
     private const val PREFS = "call_recording_prefs"
     private const val KEY_ENABLED = "auto_record_enabled"
+    private const val KEY_AUTO_SPEAKER = "auto_speaker_when_recording"
     private const val KEY_MARKERS = "record_markers" // JSON [{number, startedAtMs}]
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -47,6 +48,15 @@ object CallRecordingManager {
 
     fun setEnabled(ctx: Context, enabled: Boolean) {
         prefs(ctx).edit().putBoolean(KEY_ENABLED, enabled).apply()
+    }
+
+    /** "Tự động bật loa ngoài khi ghi âm" - mặc định TẮT vì nó chủ động đổi trải nghiệm cuộc gọi
+     *  (chuyển sang loa ngoài) mà người dùng không thao tác gì; chỉ nên bật nếu đã thử ghi âm mà
+     *  không có tiếng đối phương (xem ghi chú trong CallStateReceiver.kt). */
+    fun isAutoSpeakerEnabled(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_AUTO_SPEAKER, false)
+
+    fun setAutoSpeakerEnabled(ctx: Context, enabled: Boolean) {
+        prefs(ctx).edit().putBoolean(KEY_AUTO_SPEAKER, enabled).apply()
     }
 
     /** VOX Ghi Âm đã được cài trên máy chưa. */
