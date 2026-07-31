@@ -104,8 +104,16 @@ class ContactsDbHelper private constructor(context: Context) :
         db.beginTransaction()
         try {
             if (changedOrDeletedContactIds.isNotEmpty()) {
-                val placeholders = changedOrDeletedContactIds.joinToString(",")
-                db.execSQL("DELETE FROM $TABLE WHERE contact_id IN ($placeholders)")
+                // Xóa theo batch 500 ID/lần để tránh vượt giới hạn độ dài SQL của SQLite
+                // (giới hạn mặc định ~1MB/câu lệnh, với >1000 ID nối thẳng sẽ bắt đầu rủi ro).
+                val idList = changedOrDeletedContactIds.toList()
+                for (chunk in idList.chunked(500)) {
+                    val placeholders = chunk.joinToString(",") { "?" }
+                    db.execSQL(
+                        "DELETE FROM $TABLE WHERE contact_id IN ($placeholders)",
+                        chunk.map { it.toString() }.toTypedArray()
+                    )
+                }
             }
             insertRows(db, newRows)
             db.setTransactionSuccessful()
@@ -162,7 +170,7 @@ class ContactsDbHelper private constructor(context: Context) :
         if (normNumber.isBlank()) return null
         readableDatabase.rawQuery(
             "SELECT name, number, photo_uri, starred, contact_id, lookup_key FROM $TABLE " +
-                "WHERE norm_number = ? LIMIT 1",
+                "WHERE norm_number = ? ORDER BY starred DESC, name ASC LIMIT 1",
             arrayOf(normNumber)
         )?.use { c ->
             if (c.moveToFirst()) {
@@ -218,6 +226,22 @@ data class ContactRow(
     val photoUri: String?,
     val starred: Boolean
 )
+
+/** Lấy chữ cái đầu (đã bỏ dấu, in hoa) của tên để sắp xếp/phân nhóm danh bạ. Trả về "#" cho
+ *  tên bắt đầu bằng ký tự không phải chữ cái Latin/tiếng Việt.
+ *  Đã chuyển từ ContactsAdapter.kt (ui layer) vào đây để ContactsRepository (data layer) có thể
+ *  dùng mà không cần import ngược chiều data -> ui. */
+fun firstLetterKey(name: String): String {
+    val trimmed = name.trim()
+    if (trimmed.isEmpty()) return "#"
+    val first = trimmed[0]
+    if (!first.isLetter()) return "#"
+    val upper = first.uppercaseChar()
+    if (upper == 'Đ') return "Đ"
+    val base = java.text.Normalizer.normalize(upper.toString(), java.text.Normalizer.Form.NFD)
+        .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+    return if (base.isNotEmpty() && base[0] in 'A'..'Z') base[0].toString() else "#"
+}
 
 /** Chuẩn hoá số điện thoại để so khớp bất kể cách ghi (khoảng trắng, dấu gạch, +84 vs 0...):
  *  chỉ giữ lại chữ số rồi lấy 9 chữ số CUỐI (đủ để phân biệt số VN mà không lệ thuộc đầu số

@@ -99,9 +99,12 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Warm-up DB connection ngay khi app mở để lần đầu vào tab Gần đây không delay
+        // Warm-up DB connection ngay khi app mở để lần đầu vào tab Gần đây/Danh bạ không delay
+        // vì phải khởi tạo SQLiteOpenHelper lazy lần đầu. Dùng thread thô thay vì coroutine vì
+        // chỉ cần fire-and-forget, không cần lifecycle awareness hay kết quả trả về.
         val appCtx = applicationContext
         Thread {
+            com.h.simplecall.data.ContactsDbHelper.get(appCtx).readableDatabase
         }.start()
 
         BlockedNumbersManager.init(this)

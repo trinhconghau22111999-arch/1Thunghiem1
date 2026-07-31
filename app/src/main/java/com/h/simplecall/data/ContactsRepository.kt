@@ -7,7 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import com.h.simplecall.ui.firstLetterKey
+import com.h.simplecall.data.firstLetterKey
 
 /**
  * Bo nho dem + BAN SAO LUU danh ba dung chung cho ca app (singleton object).
@@ -66,17 +66,23 @@ object ContactsRepository {
     }
 
     private suspend fun ensureSynced(context: Context) {
-        if (syncedThisProcess) return
-        withContext(Dispatchers.IO) {
-            val db = ContactsDbHelper.get(context)
-            val lastSync = lastSyncTime(context)
-            if (lastSync == 0L || db.isEmpty()) {
-                fullSync(context, db)
-            } else {
-                incrementalSync(context, db, lastSync)
+        // QUAN TRỌNG: kiểm tra syncedThisProcess PHẢI nằm bên TRONG mutex để tránh race condition.
+        // Nếu check bên ngoài: 2 coroutine cùng thấy false -> cùng vào mutex -> cùng chạy fullSync
+        // song song -> tranh nhau ghi DB. Check bên trong mutex: coroutine thứ 2 vào được mutex
+        // THÌ cái đầu đã xong và set cờ = true -> cái thứ 2 return sớm, không chạy lại.
+        mutex.withLock {
+            if (syncedThisProcess) return@withLock
+            withContext(Dispatchers.IO) {
+                val db = ContactsDbHelper.get(context)
+                val lastSync = lastSyncTime(context)
+                if (lastSync == 0L || db.isEmpty()) {
+                    fullSync(context, db)
+                } else {
+                    incrementalSync(context, db, lastSync)
+                }
             }
+            syncedThisProcess = true
         }
-        syncedThisProcess = true
     }
 
     private fun hasPermission(context: Context): Boolean =
@@ -107,7 +113,10 @@ object ContactsRepository {
         if (digits.isEmpty()) return emptyList()
         cache?.let { list ->
             return list.asSequence()
-                .filter { it.number.isNotBlank() && it.number.filter { d -> d.isDigit() }.contains(digits) }
+                // So khớp trên normNumber (9 số cuối, không phụ thuộc +84/0/khoảng trắng) thay
+                // vì it.number.filter{isDigit()}.contains(digits) - đảm bảo "0789" tìm được
+                // "+84789..." và ngược lại, nhất quán với cách index norm_number trong SQLite DB.
+                .filter { it.number.isNotBlank() && normalizePhoneNumber(it.number).contains(digits.takeLast(9)) }
                 .distinctBy { it.name to it.number }
                 .toList()
         }
@@ -270,18 +279,21 @@ object ContactsRepository {
 
         val numbersByContactId = mutableMapOf<Long, MutableList<String>>()
         if (changedIds.isNotEmpty()) {
-            val placeholders = changedIds.joinToString(",") { "?" }
-            context.contentResolver.query(
-                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                arrayOf(ContactsContract.CommonDataKinds.Phone.CONTACT_ID, ContactsContract.CommonDataKinds.Phone.NUMBER),
-                "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} IN ($placeholders)",
-                changedIds.map { it.toString() }.toTypedArray(), null
-            )?.use { cur ->
-                val iId  = cur.getColumnIndex(ContactsContract.CommonDataKinds.Phone.CONTACT_ID)
-                val iNum = cur.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                while (cur.moveToNext()) {
-                    val num = cur.getString(iNum) ?: continue
-                    numbersByContactId.getOrPut(cur.getLong(iId)) { mutableListOf() }.add(num)
+            // Batch 500 ID/lần vì ContentResolver cũng có giới hạn độ dài selection string
+            for (chunk in changedIds.chunked(500)) {
+                val placeholders = chunk.joinToString(",") { "?" }
+                context.contentResolver.query(
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    arrayOf(ContactsContract.CommonDataKinds.Phone.CONTACT_ID, ContactsContract.CommonDataKinds.Phone.NUMBER),
+                    "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} IN ($placeholders)",
+                    chunk.map { it.toString() }.toTypedArray(), null
+                )?.use { cur ->
+                    val iId  = cur.getColumnIndex(ContactsContract.CommonDataKinds.Phone.CONTACT_ID)
+                    val iNum = cur.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                    while (cur.moveToNext()) {
+                        val num = cur.getString(iNum) ?: continue
+                        numbersByContactId.getOrPut(cur.getLong(iId)) { mutableListOf() }.add(num)
+                    }
                 }
             }
         }
