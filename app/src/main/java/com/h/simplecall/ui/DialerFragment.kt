@@ -795,6 +795,33 @@ class DialerFragment : Fragment() {
     }
 
     private fun queryContactSuggestions(ctx: Context, raw: String): List<Contact> {
+        // Số đã gõ/dán gần như ĐỦ (>= 8 chữ số, gần bằng độ dài số di động VN 10 số): dùng
+        // PhoneLookup - bảng tra cứu RIÊNG mà chính Android dựng sẵn có index, tự chuẩn hoá định
+        // dạng số (bỏ dấu cách/gạch ngang/mã vùng...) để so khớp NHANH, không cần quét toàn bộ dữ
+        // liệu danh bạ. TRƯỚC ĐÂY luôn dùng "NUMBER LIKE '%...%'" cho MỌI độ dài - dấu % ở ĐẦU
+        // khiến SQLite không tận dụng được index nào, buộc phải quét tuần tự toàn bộ bảng số điện
+        // thoại mỗi lần gọi - với máy có nhiều liên hệ, đây chính là nguyên nhân "khựng lại rất
+        // lâu" khi dán đủ 1 số 10 chữ số, không phải chỉ do bị gọi lặp lại nhiều lần (đã sửa ở
+        // debounce trước, nhưng bản thân 1 lần truy vấn LIKE vẫn chậm với danh bạ lớn).
+        if (raw.length >= 8) {
+            val list = mutableListOf<Contact>()
+            try {
+                val uri = android.net.Uri.withAppendedPath(
+                    ContactsContract.PhoneLookup.CONTENT_FILTER_URI, android.net.Uri.encode(raw))
+                ctx.contentResolver.query(uri,
+                    arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME, ContactsContract.PhoneLookup.NUMBER),
+                    null, null, null)?.use { cur ->
+                    val iName = cur.getColumnIndex(ContactsContract.PhoneLookup.DISPLAY_NAME)
+                    val iNum  = cur.getColumnIndex(ContactsContract.PhoneLookup.NUMBER)
+                    while (cur.moveToNext()) {
+                        list.add(Contact(cur.getString(iName) ?: "", cur.getString(iNum) ?: raw))
+                    }
+                }
+            } catch (_: Exception) {}
+            if (list.isNotEmpty()) return list
+            // PhoneLookup không khớp được (số lạ, chưa lưu...) - vẫn thử lại kiểu LIKE cũ bên
+            // dưới để không bỏ sót trường hợp PhoneLookup không nhận diện đúng định dạng.
+        }
         val list = mutableListOf<Contact>()
         try {
             val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
