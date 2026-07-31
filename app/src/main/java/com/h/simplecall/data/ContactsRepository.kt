@@ -133,28 +133,19 @@ object ContactsRepository {
         val digits = raw.filter { it.isDigit() }
         if (digits.isEmpty()) return emptyList()
 
-        // Logic so khớp:
-        // - Nhập BẮT ĐẦU BẰNG 0 hoặc + (ví dụ "0827", "+84"): prefix match từ trái sang phải
-        //   trên toàn bộ chữ số của số danh bạ. Gõ đến đâu khớp đến đó.
-        //   Ví dụ: gõ "0827568" → khớp "0827568860" vì bắt đầu giống nhau.
-        // - Nhập CHUỖI BẤT KỲ (4 số đuôi, số giữa...): substring match bất kỳ đâu trong số.
-        //   Ví dụ: gõ "5688" → khớp "0827568860".
-        val startsFromBeginning = raw.startsWith("0") || raw.startsWith("+")
-        fun matchesContact(contactNumber: String): Boolean {
-            val fullDigits = contactNumber.filter { it.isDigit() }
-            return if (startsFromBeginning) fullDigits.startsWith(digits)
-            else fullDigits.contains(digits)
-        }
-
+        // Substring match: tìm chuỗi digits xuất hiện bất kỳ đâu trong số đầy đủ (chỉ giữ chữ số).
+        // Gõ "0703" → chỉ khớp số có chứa "0703" liên tiếp (vd. "0703123456", "0987070312").
+        // Không dùng norm_number (9 số cuối) để tránh khớp nhầm: "0703" sẽ không khớp "0946440703"
+        // vì "0946440703" không chứa chuỗi "0703" liên tiếp ở đầu.
         cache?.let { list ->
             return list.asSequence()
-                .filter { it.number.isNotBlank() && matchesContact(it.number) }
+                .filter { it.number.isNotBlank() && it.number.filter(Char::isDigit).contains(digits) }
                 .distinctBy { it.name to it.number }
                 .toList()
         }
         if (!hasPermission(context)) return emptyList()
         return try {
-            ContactsDbHelper.get(context).queryByDigitsContains(digits, startsFromBeginning)
+            ContactsDbHelper.get(context).queryByDigitsContains(digits)
         } catch (_: Exception) {
             emptyList()
         }
