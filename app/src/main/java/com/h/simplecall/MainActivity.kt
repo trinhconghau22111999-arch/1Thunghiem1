@@ -18,6 +18,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.h.simplecall.call.BlockedNumbersManager
 import com.h.simplecall.call.MissedCallNotifier
 import com.h.simplecall.databinding.ActivityMainBinding
@@ -69,6 +73,23 @@ class MainActivity : AppCompatActivity() {
             showPermanentlyDeniedDialog(permanentlyDenied)
         }
         markHasRequestedPermsBefore()
+
+        // Người dùng vừa bấm "Cho phép" ở hộp thoại quyền (có thể lần này mới thật sự có quyền
+        // đọc danh bạ) - thử đồng bộ lại ngay, không cần đợi tới lần mở app kế tiếp.
+        if (results[android.Manifest.permission.READ_CONTACTS] == true) {
+            syncContactsInBackground()
+        }
+    }
+
+    /** Tự kiểm tra & cập nhật bản sao lưu danh bạ của app (xem ContactsRepository) ở luồng nền,
+     *  không chặn UI. An toàn gọi nhiều lần trong 1 phiên chạy app - ContactsRepository tự biết
+     *  khi nào cần đồng bộ lại thật sự. */
+    private fun syncContactsInBackground() {
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                com.h.simplecall.data.ContactsRepository.syncOnAppStart(applicationContext)
+            }
+        }
     }
     private val roleLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()) { updateDefaultDialerStatus() }
@@ -87,6 +108,13 @@ class MainActivity : AppCompatActivity() {
         MissedCallNotifier.init(this)
 
         requestPermissions()
+
+        // "Mỗi lần vào app tự động kiểm tra danh bạ mới": kích hoạt đồng bộ danh bạ máy vào bản
+        // sao lưu của app NGAY khi mở app, không cần đợi người dùng bấm vào tab Danh bạ - chạy
+        // hẳn ở nền (IO) nên không làm chậm màn hình mở app. Nếu chưa có quyền đọc danh bạ lúc
+        // này (app vừa cài, hộp thoại xin quyền còn đang mở) thì hàm tự bỏ qua, không sao - sẽ
+        // được gọi lại ngay khi permLauncher báo quyền đã được cấp (xem bên dưới).
+        syncContactsInBackground()
 
         binding.bottomNav.setOnItemSelectedListener { item -> goToTab(item.itemId); true }
         binding.bottomNav.setOnItemReselectedListener { item -> goToTab(item.itemId) }

@@ -824,41 +824,14 @@ class DialerFragment : Fragment() {
     }
 
     private fun queryContactSuggestions(ctx: Context, raw: String): List<Contact> {
-        // Danh bạ đã được ĐỒNG BỘ & LƯU SẴN trong bộ nhớ qua ContactsRepository (nạp 1 lần khi
-        // người dùng từng mở tab Danh bạ, giữ cache suốt phiên chạy app - xem ContactsRepository).
-        // Nếu cache này đã có, so khớp NGAY trên List đã có sẵn trong RAM - nhanh gần như tức
-        // thời (micro giây) bất kể danh bạ bao nhiêu số, vì không cần gọi sang tiến trình
-        // ContactsProvider của hệ thống nữa (mỗi lần gọi sang đó luôn tốn phí IPC, và nếu phải
-        // quét toàn bảng như cách làm CŨ thì tốn tới VÀI GIÂY với danh bạ lớn - đúng lỗi "dán 10
-        // số vào check còn chậm hơn bấm từng số", vì bấm từng số còn có PhoneLookup đỡ 1 phần,
-        // còn rơi vào trường hợp PhoneLookup không khớp thì lại tụt về quét toàn bảng rất chậm).
-        val cached = com.h.simplecall.data.ContactsRepository.peek()
-        if (cached != null) {
-            val digitsRaw = raw.filter { it.isDigit() }
-            if (digitsRaw.isEmpty()) return emptyList()
-            return cached.asSequence()
-                .filter { it.number.isNotBlank() && it.number.filter { d -> d.isDigit() }.contains(digitsRaw) }
-                .distinctBy { it.name to it.number }
-                .toList()
-        }
-        // Cache CHƯA có (người dùng chưa từng mở tab Danh bạ trong phiên chạy này) - tra trực
-        // tiếp bằng PhoneLookup, bảng tra cứu số điện thoại RIÊNG có index sẵn của hệ thống, KHÔNG
-        // quét toàn bộ bảng danh bạ như "NUMBER LIKE '%...%'" cách làm cũ.
-        val list = mutableListOf<Contact>()
-        try {
-            val uri = android.net.Uri.withAppendedPath(
-                ContactsContract.PhoneLookup.CONTENT_FILTER_URI, android.net.Uri.encode(raw))
-            ctx.contentResolver.query(uri,
-                arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME, ContactsContract.PhoneLookup.NUMBER),
-                null, null, null)?.use { cur ->
-                val iName = cur.getColumnIndex(ContactsContract.PhoneLookup.DISPLAY_NAME)
-                val iNum  = cur.getColumnIndex(ContactsContract.PhoneLookup.NUMBER)
-                while (cur.moveToNext()) {
-                    list.add(Contact(cur.getString(iName) ?: "", cur.getString(iNum) ?: raw))
-                }
-            }
-        } catch (_: Exception) {}
-        return list
+        // Danh bạ đã được ĐỒNG BỘ & LƯU SẴN trong BẢN SAO LƯU của app qua ContactsRepository
+        // (đồng bộ ngay khi mở app - xem MainActivity.syncContactsInBackground() - và giữ cache
+        // trong RAM suốt phiên chạy app). ContactsRepository.searchContacts() tự ưu tiên so khớp
+        // trên cache RAM (nhanh gần như tức thời, không cần gọi sang tiến trình khác), và chỉ khi
+        // cache RAM chưa kịp nạp mới đọc thẳng bảng SQLite CỦA APP (vẫn nhanh hơn hẳn quét
+        // ContactsContract của hệ thống như cách làm CŨ, và không còn phụ thuộc PhoneLookup của
+        // hệ thống nữa - đúng yêu cầu chỉ dùng dữ liệu danh bạ đã lưu trong app).
+        return com.h.simplecall.data.ContactsRepository.searchContacts(ctx, raw)
     }
 
     /** allRecentEntries đã được tải sẵn ở nền (bgExecutor) và sắp theo DATE DESC, nên số gọi

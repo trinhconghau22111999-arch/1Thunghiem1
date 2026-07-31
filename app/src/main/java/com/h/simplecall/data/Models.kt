@@ -4,7 +4,12 @@ data class Contact(
     val name: String,
     val number: String,
     val photoUri: String? = null,
-    val starred: Boolean = false // đã được đánh dấu sao (yêu thích) trong danh bạ hệ thống
+    val starred: Boolean = false, // đã được đánh dấu sao (yêu thích) trong danh bạ hệ thống
+    // contactId + lookupKey: lưu lại từ lần đồng bộ để mở/sửa liên hệ hệ thống (ACTION_EDIT)
+    // hoặc dựng lại Uri liên hệ mà KHÔNG cần truy vấn lại ContactsContract - xem
+    // ContactsRepository.getContactUri(). Mặc định rỗng cho các Contact tạo tạm (vd. số lạ).
+    val contactId: Long = 0L,
+    val lookupKey: String? = null
 )
 
 data class CallLogEntry(

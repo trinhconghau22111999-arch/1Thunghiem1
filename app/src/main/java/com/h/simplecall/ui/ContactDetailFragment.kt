@@ -135,25 +135,14 @@ class ContactDetailFragment : Fragment() {
     }
 
     /** Tra ngược từ số điện thoại ra Uri liên hệ thật trong danh bạ hệ thống (dùng chung cho
-     *  Sửa/Xem thẻ liên hệ), cùng cách CallHistoryFragment.btnEdit đã làm — PhoneLookup tự
-     *  chuẩn hoá số nên đáng tin hơn so với so khớp chuỗi thô. Trả về null nếu số này chưa
-     *  từng được lưu (trường hợp hiếm ở màn này vì màn chỉ mở từ liên hệ ĐÃ LƯU, nhưng vẫn
-     *  phòng hờ nếu liên hệ vừa bị xoá ở nơi khác trong lúc đang xem). */
-    private fun lookupContactUri(number: String): android.net.Uri? {
-        return try {
-            val uri = android.net.Uri.withAppendedPath(
-                ContactsContract.PhoneLookup.CONTENT_FILTER_URI, android.net.Uri.encode(number)
-            )
-            requireContext().contentResolver.query(
-                uri, arrayOf(ContactsContract.PhoneLookup.LOOKUP_KEY, ContactsContract.PhoneLookup._ID),
-                null, null, null
-            )?.use { cur ->
-                if (cur.moveToFirst()) {
-                    ContactsContract.Contacts.getLookupUri(cur.getLong(1), cur.getString(0))
-                } else null
-            }
-        } catch (_: Exception) { null }
-    }
+     *  Sửa/Xem thẻ liên hệ). Đọc thẳng từ BẢN SAO LƯU danh bạ của app (contact_id + lookup_key
+     *  đã lưu sẵn từ lần đồng bộ - xem ContactsRepository.getContactUri()), không cần hỏi lại
+     *  ContactsProvider của hệ thống mỗi lần bấm Sửa nữa. Chỉ rơi về tra trực tiếp qua
+     *  PhoneLookup nếu số này chưa kịp có trong bản sao lưu (trường hợp hiếm ở màn này vì màn
+     *  chỉ mở từ liên hệ ĐÃ LƯU, nhưng vẫn phòng hờ nếu liên hệ vừa đổi ở nơi khác trong lúc
+     *  đang xem, trước khi kịp đồng bộ lại). */
+    private fun lookupContactUri(number: String): android.net.Uri? =
+        com.h.simplecall.data.ContactsRepository.getContactUri(requireContext(), number)
 
     /** Nút bút chì: mở màn sửa liên hệ hệ thống. Nếu vì lý do gì đó không còn tra ra được liên
      *  hệ (ví dụ vừa bị xoá ở app Danh bạ khác trong lúc đang xem màn này), rơi về tạo mới với

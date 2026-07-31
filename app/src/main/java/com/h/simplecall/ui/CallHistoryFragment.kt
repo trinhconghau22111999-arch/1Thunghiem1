@@ -135,21 +135,10 @@ class CallHistoryFragment : Fragment() {
         // ── Nút Sửa liên hệ ──
         b.btnEdit.setOnClickListener {
             val ctx = requireContext()
-            // ContactsRepository không có lookupContactUri — tra thẳng qua PhoneLookup
-            val contactUri = runCatching {
-                val lookupUri = android.net.Uri.withAppendedPath(
-                    android.provider.ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
-                    android.net.Uri.encode(number))
-                ctx.contentResolver.query(lookupUri,
-                    arrayOf(android.provider.ContactsContract.PhoneLookup._ID,
-                            android.provider.ContactsContract.PhoneLookup.LOOKUP_KEY),
-                    null, null, null)?.use { cur ->
-                    if (cur.moveToFirst()) {
-                        val id = cur.getLong(0); val key = cur.getString(1)
-                        android.provider.ContactsContract.Contacts.getLookupUri(id, key)
-                    } else null
-                }
-            }.getOrNull()
+            // Đọc thẳng từ BẢN SAO LƯU danh bạ của app (contact_id + lookup_key đã lưu sẵn từ
+            // lần đồng bộ) thay vì tra lại PhoneLookup của hệ thống mỗi lần bấm Sửa - xem
+            // ContactsRepository.getContactUri() (tự rơi về PhoneLookup nếu số chưa kịp đồng bộ).
+            val contactUri = com.h.simplecall.data.ContactsRepository.getContactUri(ctx, number)
             try {
                 if (contactUri != null) {
                     startActivity(android.content.Intent(android.content.Intent.ACTION_EDIT).apply {
