@@ -132,12 +132,23 @@ object ContactsRepository {
     fun searchContacts(context: Context, raw: String): List<Contact> {
         val digits = raw.filter { it.isDigit() }
         if (digits.isEmpty()) return emptyList()
+
+        // Logic so khớp:
+        // - Nhập BẮT ĐẦU BẰNG 0 hoặc + (ví dụ "0827", "+84"): prefix match từ trái sang phải
+        //   trên toàn bộ chữ số của số danh bạ. Gõ đến đâu khớp đến đó.
+        //   Ví dụ: gõ "0827568" → khớp "0827568860" vì bắt đầu giống nhau.
+        // - Nhập CHUỖI BẤT KỲ (4 số đuôi, số giữa...): substring match bất kỳ đâu trong số.
+        //   Ví dụ: gõ "5688" → khớp "0827568860".
+        val startsFromBeginning = raw.startsWith("0") || raw.startsWith("+")
+        fun matchesContact(contactNumber: String): Boolean {
+            val fullDigits = contactNumber.filter { it.isDigit() }
+            return if (startsFromBeginning) fullDigits.startsWith(digits)
+            else fullDigits.contains(digits)
+        }
+
         cache?.let { list ->
             return list.asSequence()
-                // So khớp trên normNumber (9 số cuối, không phụ thuộc +84/0/khoảng trắng) thay
-                // vì it.number.filter{isDigit()}.contains(digits) - đảm bảo "0789" tìm được
-                // "+84789..." và ngược lại, nhất quán với cách index norm_number trong SQLite DB.
-                .filter { it.number.isNotBlank() && normalizePhoneNumber(it.number).contains(digits.takeLast(9)) }
+                .filter { it.number.isNotBlank() && matchesContact(it.number) }
                 .distinctBy { it.name to it.number }
                 .toList()
         }
