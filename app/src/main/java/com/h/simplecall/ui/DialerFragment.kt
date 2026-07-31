@@ -286,8 +286,14 @@ class DialerFragment : Fragment() {
 
         syncBackspace()
 
-        // Bàn phím số luôn bật sẵn khi vào app/tab Gần đây
-        setKeypadVisible(true)
+        // GHI CHÚ: KHÔNG gọi setKeypadVisible(true) ở đây nữa (trước đây có gọi) - onResume()
+        // LUÔN chạy ngay sau onViewCreated() với cùng 1 lần fragment được hiện lên (kể cả khi
+        // tái sử dụng lại instance cũ lúc chuyển tab qua lại Danh bạ <-> Gần đây), và onResume()
+        // đã tự gọi setKeypadVisible(true) sẵn rồi. Gọi 2 LẦN liên tiếp khiến 2 animation trượt
+        // panel chồng lên nhau (lần 1 chạy lúc panel.height thường vẫn = 0 vì chưa kịp đo layout,
+        // lần 2 chạy lại reset translationY về giá trị ĐÃ ĐO ĐÚNG rồi animate lại từ đầu) - đây là
+        // nguyên nhân gây giật/đôi khi kẹt sai trạng thái ẩn của cả bàn phím lẫn crash-race với
+        // renderRecents(), đúng lỗi "từ Danh bạ về Gần đây có xác suất ẩn bàn phím".
 
         // KHÔNG bật bàn phím hệ thống của máy ở đây nữa. etNumber chỉ dùng để HIỂN THỊ số đang
         // gõ, việc nhập số chỉ đến từ các phím bấm 0-9 * # trong bàn phím số riêng của app (xem
@@ -920,10 +926,32 @@ class DialerFragment : Fragment() {
         callLogObserver = null
     }
 
+    // TRƯỚC ĐÂY: onDestroyView() gọi bgExecutor.shutdownNow() và KHÔNG reset recentsAdapter.
+    // Nhưng MainActivity.goToTab() TÁI SỬ DỤNG lại đúng 1 instance DialerFragment (tìm theo tag
+    // "recents") mỗi lần chuyển qua lại Danh bạ <-> Gần đây - chỉ VIEW của fragment bị huỷ/tạo
+    // lại (onDestroyView -> onCreateView), bản thân Fragment (và các field của nó) vẫn SỐNG
+    // xuyên suốt. Hai lỗi phát sinh từ đó:
+    //  (1) recentsAdapter (adapter gắn cho rvRecents CŨ, đã bị huỷ) không được đặt lại về null,
+    //      nên lần renderRecents() kế tiếp (khi quay lại tab) tưởng đã có adapter, chỉ gọi
+    //      updateItems() trên adapter CŨ (mồ côi, không còn gắn với RecyclerView nào) mà KHÔNG
+    //      bao giờ gán adapter cho b.rvRecents MỚI - RecyclerView mới adapter=null nên không
+    //      hiện gì cả, trông như "ẩn nhật ký" mỗi khi từ Danh bạ quay lại Gần đây.
+    //  (2) bgExecutor bị shutdownNow() vĩnh viễn ngay ở lần đầu rời tab, nhưng vẫn là field của
+    //      CÙNG 1 instance được dùng lại - mọi lần loadRecents()/searchSuggestions() sau đó gọi
+    //      bgExecutor.execute{} sẽ ném RejectedExecutionException (bị try/catch nuốt âm thầm ở
+    //      loadRecents(), nên không crash nhưng lịch sử không bao giờ đồng bộ lại được nữa) -
+    //      góp phần thêm vào hiện tượng "ẩn nhật ký, thậm chí bàn phím" (dữ liệu/trạng thái
+    //      không kịp cập nhật khi quay lại). Giờ dời việc tắt executor sang onDestroy() (Fragment
+    //      bị huỷ THẬT SỰ), không còn nằm ở onDestroyView() (chỉ riêng View bị huỷ) nữa.
     override fun onDestroyView() {
         toneGen?.release(); toneGen = null
         pendingSearchRunnable?.let { mainHandler.removeCallbacks(it) }
-        bgExecutor.shutdownNow()
+        recentsAdapter = null
         super.onDestroyView(); _b = null
+    }
+
+    override fun onDestroy() {
+        bgExecutor.shutdownNow()
+        super.onDestroy()
     }
 }
